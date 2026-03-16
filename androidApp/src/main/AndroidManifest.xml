@@ -32,5 +32,10 @@
             </intent-filter>
         </activity>
         <activity android:name=".NativeMixKuiklyViewDemoActivity"/>
+        <activity
+            android:name=".ResizableKuiklyActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:windowSoftInputMode="stateUnspecified|adjustNothing"
+            android:exported="true" />
     </application>
 </manifest>

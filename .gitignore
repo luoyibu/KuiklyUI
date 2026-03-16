@@ -43,6 +43,7 @@ proto/**/*.kt
 /iosApp/iosApp.xcodeproj/xcshareddata/xcschemes/iosApp.xcscheme
 
 .kotlin
+.build
 /compose/compose.podspec
 /core/core.podspec
 /core-ksp/bin/

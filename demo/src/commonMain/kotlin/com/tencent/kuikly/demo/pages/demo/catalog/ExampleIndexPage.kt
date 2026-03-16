@@ -274,6 +274,13 @@ internal class ExampleIndexPage : BasePager() {
             declarativeExampleUrl = generateJumpUrl("VideoExamplePage")
         })
 
+        itemList.add(ExampleItemData().apply {
+            avatarText = "Dr"
+            titleText = "VForLazy Drag Issue"
+            subtitleText = "iPad 26 拖拽窗口后 VForLazy 列表出现空白区域的复现 Demo"
+            declarativeExampleUrl = generateJumpUrl("VforLazyDragIssue")
+        })
+
     }
 
     private fun generateJumpUrl(pagerName: String) : String {

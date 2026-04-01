@@ -49,7 +49,6 @@ KuiklyUI Harness
 - **主动触发**：每份子文档前 5 行明确写「以下场景读取本文件」，AI 先读前 5 行判断相关性再决定是否读完整内容
 
 > 多工具兼容策略详见：[附录 A：多工具上下文兼容](#附录-a多工具上下文兼容)
-> 多工具 Skills 兼容方案详见：[附录 B：多工具 Skills 兼容](#附录-b多工具-skills-兼容)
 
 ### 已实施的知识库结构
 
@@ -137,43 +136,31 @@ CLAUDE.md -> AGENTS.md             # 软链接，Claude Code 兼容
 ## 模块 3：Bug 跟进工作流
 
 **状态**：🚧 进行中
-**目标**：标准化 Bug 排查流程，AI 驱动编译/部署/日志分析，人只做 4 件事。
+**目标**：AI 驱动编译/部署/日志分析，人只做 4 件事，全程无需打开 IDE。
 
-> 详细工作流文档：[.ai/team/workflows-debug.md](../.ai/team/workflows-debug.md)（待创建）
+> 详细工作流文档：[.ai/team/workflows-debug.md](../.ai/team/workflows-debug.md)
 
-**目标**：标准化 Bug 排查流程，避免 AI 乱猜、循环修复。
+### 核心思路
 
-### 核心工作流
+- **人工做的 4 件事**：描述问题 / 操作复现 / 确认根因和方案 / Review 代码
+- **AI 做的事**：构造复现 Demo、编译部署、添加诊断日志、分析日志、实施修复、发起 MR
+- **依赖 Skills**：`systematic-debugging`（根因分析）+ `kuikly-app-runner`（编译运行）
 
-```
-1. 问题定义
-   - 明确复现步骤
-   - 明确预期行为 vs 实际行为
-   - 记录到 bug-report.md
+### 模型选择
 
-2. 根因分析
-   - 子 Agent 搜索相关代码（隔离上下文）
-   - 形成假设 → 验证假设
-   - 记录到 debug-notes.md
+| 难度 | 推荐模型 | 适用场景 |
+|------|---------|---------|
+| 优先 | Claude Sonnet 4.6 | 复杂 bug |
+| 复杂 | Claude Opus 4.6 | 根因隐蔽、多次分析仍不确定 |
+| 简单 | Kimi 2.5 | 简单 bug |
 
-3. 修复与验证
-   - 实现最小化修复
-   - 在所有平台验证（Android/iOS/HarmonyOS）
-   - 写回归测试
+### TODO
 
-4. 知识沉淀
-   - 将新发现的错误模式更新到 docs/references/common-errors.md
-   - Harness 迭代改进信号
-```
+- [ ] 沉淀为 `kuikly-debug` Skill，实现一句话启动完整流程
+- [ ] 探索自动化测试，替代「开发者操作复现」步骤
+- [ ] 编写上下文管理指南（AI 变慢变蠢时的处理方式）
 
-**关键原则**：
-- 不要让主 Agent 做大量搜索，用子 Agent 隔离上下文
-- Bug 修复后要问：这个错误的根因是 Harness 配置不足导致的吗？
-
-### 待完成
-
-- [ ] 制定 debug slash command 提示词模板
-- [ ] 建立 `docs/references/common-errors.md` 初始内容
+> 多工具 Skills 兼容方案详见：[附录 B：多工具 Skills 兼容](#附录-b多工具-skills-兼容)
 
 ---
 

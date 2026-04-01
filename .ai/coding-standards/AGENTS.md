@@ -73,7 +73,17 @@ Render 层（`core-render-android/` / `core-render-ios/`）的组件和模块以
 
 ---
 
-## 5. 日志规范（KLog）
+## 5. API 可见性规范
+
+KuiklyUI 是 SDK 框架，**默认用 `internal`，谨慎使用 `public`**。
+
+- `public`：仅对外暴露的稳定 API（一旦 public 就是对外承诺，变更需要兼容考虑）
+- `internal`：模块内部实现、未稳定的 API、仅供框架内部使用的类
+- 新增类/方法时，先问：「下游业务代码需要直接使用这个吗？」，不确定就用 `internal`
+
+---
+
+## 6. 日志规范（KLog）
 
 ```kotlin
 KLog.i(TAG, "页面加载完成")

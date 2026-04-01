@@ -1,6 +1,6 @@
 # KuiklyUI 编码规范
 
-> 以下场景读取本文件：新建文件需要添加版权头；选择 import 包路径（Compose 相关包名）；新增 `expect/actual` 需要确认平台覆盖；render 层新建组件或 Module 需要确认命名前缀（KR）；添加日志需要确认 Tag 规范。
+> 以下场景读取本文件：新建文件需要添加版权头；选择 import 包路径（Compose 相关包名）；新增 `expect/actual` 需要确认平台覆盖；render 层新建组件或 Module 需要确认命名前缀（KR）；添加日志需要确认 Tag 规范；新增类或方法需要确认 `public` vs `internal` 可见性。
 
 ## 1. 版权头
 

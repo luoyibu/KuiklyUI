@@ -39,6 +39,7 @@ KuiklyUI Harness
 
 - [A Complete Guide to AGENTS.md](https://www.aihero.dev/a-complete-guide-to-agents-md) — 渐进式披露、< 60 行原则、少即是多
 - [Writing a Good CLAUDE.md](https://www.humanlayer.dev/blog/writing-a-good-claude-md) — 触发条件写法、只放代码管不了的东西
+- [Harness Engineering](https://openai.com/zh-Hans-CN/index/harness-engineering/)（OpenAI）— 知识库组织形式参考（我们采用了渐进式披露思路，但结构有所不同）
 
 ### 核心原则
 

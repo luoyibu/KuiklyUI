@@ -6,7 +6,7 @@
 - `.agents/skills/systematic-debugging/` — 系统性根因分析
 - `.agents/skills/kuikly-app-runner/` — KuiklyUI 多平台编译运行
 
-> Skills 兼容方案：[HARNESS_OVERVIEW.md 附录 B](../../harness-engineer/HARNESS_OVERVIEW.md#附录-b多工具-skills-兼容)
+当前兼容 Claude Code、OpenCode、Cursor、CodeBuddy，[兼容方案详情](../../harness-engineer/HARNESS_OVERVIEW.md#附录-b多工具-skills-兼容)
 
 ---
 

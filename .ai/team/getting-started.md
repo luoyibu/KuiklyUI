@@ -4,7 +4,24 @@
 
 ---
 
+## KuiklyUI Harness 设计方案
+
+本指南基于 KuiklyUI 团队的 AI 编程 Harness 工程建设规划，详见：
+[KuiklyUI Harness 工程建设总览](../../harness-engineer/HARNESS_OVERVIEW.md)
+
+---
+
 ## 支持的工具
+
+以下工具均已集成知识库和 Skills，开箱即用，不推荐特定工具，按个人习惯选择：
+
+| 工具 | 说明 |
+|------|------|
+| **Claude Code** | Anthropic 官方 CLI，终端内使用 |
+| **Claude-internal** | 腾讯内部 Claude 接入 |
+| **OpenCode** | 开源 AI 编程工具 |
+| **Cursor** | IDE 集成，可视化 diff 体验好 |
+| **CodeBuddy** | 腾讯内部 AI 编程助手 |
 
 ---
 

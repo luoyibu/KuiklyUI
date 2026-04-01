@@ -87,6 +87,29 @@ CLAUDE.md -> AGENTS.md             # 软链接，Claude Code 兼容
     └── publish.md                 # 发布管理
 ```
 
+### 多工具 Skills 兼容方案
+
+各工具 project-level skills 的加载路径：
+
+| 工具 | 路径 |
+|------|------|
+| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| OpenCode | `.claude/skills/<name>/SKILL.md`（兼容 Claude 路径）|
+| Cursor | `.agents/skills/<name>/SKILL.md` 或 `.cursor/skills/` |
+| CodeBuddy | `.codebuddy/skills/<name>/SKILL.md` |
+
+**统一方案**：以 `.agents/skills/` 为真实目录，其余通过软链接指向：
+```bash
+.agents/skills/        ← 真实 skills 目录
+.claude/skills/  -> .agents/skills/   ← Claude Code / OpenCode 兼容
+.codebuddy/skills/ -> .agents/skills/ ← CodeBuddy 兼容
+# Cursor 同时支持 .agents/skills/，无需额外软链接
+```
+
+**待完成**：
+- [ ] 创建 `.agents/skills/` 目录，迁入 `systematic-debugging`、`kuikly-app-runner` 等 skills
+- [ ] 创建 `.claude/skills/` 和 `.codebuddy/skills/` 软链接
+
 ---
 
 ## 模块 2：开发工作流（需求研发）
@@ -285,8 +308,6 @@ AI 辅助开发中存在两种腐烂：
 
 ### 6.1 知识库健康度扫描（初步构思，待启动）
 
-**Owner**：@luoyibu
-
 **核心思路**：
 - 不依赖定期人工扫描，改为**依赖 PR 触发**（代码变更时检查相关文档是否需要同步）
 - 日常 AI 开发时，**AI 主动识别沉淀机会**（遇到文档未覆盖的知识点时主动提示）
@@ -323,6 +344,7 @@ AI 辅助开发中存在两种腐烂：
 | 架构约束违规 | lint 规则之外的结构性问题 | 迭代结束时 | ArchUnit |
 | 重复代码 | 相似代码块检测 | 月度 | PMD CPD |
 | 废弃代码 | 未被引用的 public 方法 | 月度 | 待定 |
+public API 与文档对比
 
 **待完成**：
 - [ ] 配置 ArchUnit 结构性测试

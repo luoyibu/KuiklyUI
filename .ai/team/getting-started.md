@@ -2,14 +2,10 @@
 
 > 面向团队成员的 AI 辅助开发实践指南。
 
----
-
 ## KuiklyUI Harness 设计方案
 
 本指南基于 KuiklyUI 团队的 AI 编程 Harness 工程建设规划，详见：
 [KuiklyUI Harness 工程建设总览](../../harness-engineer/HARNESS_OVERVIEW.md)
-
----
 
 ## 支持的工具
 
@@ -22,8 +18,6 @@
 | **OpenCode** | 开源 AI 编程工具 |
 | **Cursor** | IDE 集成，可视化 diff 体验好 |
 | **CodeBuddy** | 腾讯内部 AI 编程助手 |
-
----
 
 ## AI 知识库
 
@@ -47,12 +41,10 @@
 **遇到需要补充的知识，让 AI 更新知识库**：
 
 ```
-我发现 [某个模块/某类问题] 在知识库里没有覆盖，
-请根据我们刚才的讨论，把关键知识点整理到合适的 .ai/ 文档里，
-并更新相关的索引，然后提一个 PR。
+我们刚才的讨论里有一些值得沉淀的内容，请你总结一下哪些知识点值得补充到 AI 知识库，
+查阅当前 .ai/ 目录的结构，找到合适的位置存放，注意遵循渐进式披露原则，
+确认后提一个 PR。
 ```
-
----
 
 ## AI 工作流
 
@@ -68,11 +60,7 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 
 > TODO：待补充（负责人：@elixxli）
 
----
-
 ## 经验总结
-
----
 
 ### ⚠️ 1. 发现 AI 遇到困难，主动让 AI 自己总结优化
 
@@ -101,8 +89,6 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 ```
 
 **这是一个正向飞轮**：越用越好，而不是越用越烦。
-
----
 
 ### 2. 上下文管理：AI 变慢变蠢时怎么办
 
@@ -135,8 +121,6 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 请先阅读 progress.md，理解我们当前任务的背景和进度，然后跟我确认下一步工作
 ```
 
----
-
 ### 3. 子 Agent 作为上下文防火墙
 
 > "Sub-agents are about context control... use a fresh context window for lookup/search/summarize, enabling the parent to start working directly without polluting its context window with Glob/Grep/Read calls"
@@ -154,8 +138,6 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 | 需要生成调研报告 | 让子 Agent 专门负责调研，主 Agent 基于报告做决策 |
 
 **直观判断**：如果一个任务需要大量 Grep/Read/Glob 操作，就适合交给子 Agent。
-
----
 
 ## 模型选择
 

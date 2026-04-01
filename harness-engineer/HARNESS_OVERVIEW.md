@@ -48,16 +48,8 @@ KuiklyUI Harness
 - **只放代码管不了的东西**：能用 lint 强制的规范，不要放进 AGENTS.md
 - **主动触发**：每份子文档前 5 行明确写「以下场景读取本文件」，AI 先读前 5 行判断相关性再决定是否读完整内容
 
-### 多工具兼容策略
-
-| 工具 | 读取文件 | 说明 |
-|------|---------|------|
-| **Claude Code** | `CLAUDE.md` | 软链接到 `AGENTS.md` |
-| **OpenCode** | `AGENTS.md` | 无 AGENTS.md 时回退读 `CLAUDE.md` |
-| **CodeBuddy** | `CODEBUDDY.md` | 无 CODEBUDDY.md 时回退读 `AGENTS.md` |
-| **Cursor** | `AGENTS.md` | 支持根目录及子目录 |
-
-**实现**：`AGENTS.md` 为真实文件，`CLAUDE.md` 为软链接（`ln -s AGENTS.md CLAUDE.md`）。
+> 多工具兼容策略详见：[附录 A：多工具上下文兼容](#附录-a多工具上下文兼容)
+> 多工具 Skills 兼容方案详见：[附录 B：多工具 Skills 兼容](#附录-b多工具-skills-兼容)
 
 ### 已实施的知识库结构
 
@@ -86,29 +78,6 @@ CLAUDE.md -> AGENTS.md             # 软链接，Claude Code 兼容
     ├── nested-scroll.md           # 嵌套滚动实现原理
     └── publish.md                 # 发布管理
 ```
-
-### 多工具 Skills 兼容方案
-
-各工具 project-level skills 的加载路径：
-
-| 工具 | 路径 |
-|------|------|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
-| OpenCode | `.claude/skills/<name>/SKILL.md`（兼容 Claude 路径）|
-| Cursor | `.agents/skills/<name>/SKILL.md` 或 `.cursor/skills/` |
-| CodeBuddy | `.codebuddy/skills/<name>/SKILL.md` |
-
-**统一方案**：以 `.agents/skills/` 为真实目录，其余通过软链接指向：
-```bash
-.agents/skills/        ← 真实 skills 目录
-.claude/skills/  -> .agents/skills/   ← Claude Code / OpenCode 兼容
-.codebuddy/skills/ -> .agents/skills/ ← CodeBuddy 兼容
-# Cursor 同时支持 .agents/skills/，无需额外软链接
-```
-
-**待完成**：
-- [ ] 创建 `.agents/skills/` 目录，迁入 `systematic-debugging`、`kuikly-app-runner` 等 skills
-- [ ] 创建 `.claude/skills/` 和 `.codebuddy/skills/` 软链接
 
 ---
 
@@ -165,7 +134,12 @@ CLAUDE.md -> AGENTS.md             # 软链接，Claude Code 兼容
 
 ---
 
-## 模块 3：问题调试工作流
+## 模块 3：Bug 跟进工作流
+
+**状态**：🚧 进行中
+**目标**：标准化 Bug 排查流程，AI 驱动编译/部署/日志分析，人只做 4 件事。
+
+> 详细工作流文档：[.ai/team/workflows-debug.md](../.ai/team/workflows-debug.md)（待创建）
 
 **目标**：标准化 Bug 排查流程，避免 AI 乱猜、循环修复。
 
@@ -482,3 +456,43 @@ public API 与文档对比
 *文档版本: v1.0-draft*
 *创建时间: 2026-03-31*
 *替代文档: KUIKLY_HARNESS_PLAN.md（旧版，保留供参考）*
+
+---
+
+## 附录 A：多工具上下文兼容
+
+各工具读取的上下文入口文件：
+
+| 工具 | 读取文件 | 说明 |
+|------|---------|------|
+| **Claude Code** | `CLAUDE.md` | 软链接到 `AGENTS.md` |
+| **OpenCode** | `AGENTS.md` | 无 AGENTS.md 时回退读 `CLAUDE.md` |
+| **CodeBuddy** | `CODEBUDDY.md` | 无 CODEBUDDY.md 时回退读 `AGENTS.md` |
+| **Cursor** | `AGENTS.md` | 支持根目录及子目录 |
+
+**实现**：`AGENTS.md` 为真实文件，`CLAUDE.md` 为软链接（`ln -s AGENTS.md CLAUDE.md`）。
+
+---
+
+## 附录 B：多工具 Skills 兼容
+
+各工具 project-level skills 的加载路径：
+
+| 工具 | 路径 |
+|------|------|
+| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| OpenCode | `.claude/skills/<name>/SKILL.md`（兼容 Claude 路径）|
+| Cursor | `.agents/skills/<name>/SKILL.md` 或 `.cursor/skills/` |
+| CodeBuddy | `.codebuddy/skills/<name>/SKILL.md` |
+
+**统一方案**：以 `.agents/skills/` 为真实目录，其余通过软链接指向：
+```bash
+.agents/skills/          ← 真实 skills 目录（已创建）
+.claude/skills/    -> ../.agents/skills/   ← Claude Code / OpenCode 兼容（已创建）
+.codebuddy/skills/ -> ../.agents/skills/   ← CodeBuddy 兼容（已创建）
+# Cursor 同时支持 .agents/skills/，无需额外软链接
+```
+
+**已迁入的 skills**：
+- `systematic-debugging` — Bug 跟进工作流核心 skill
+- `kuikly-app-runner` — KuiklyUI 各平台编译运行工具

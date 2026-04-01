@@ -25,7 +25,8 @@ KuiklyUI Harness
 ├── 模块 4：上下文管理策略      🔲 未规划
 ├── 模块 5：架构约束与 Lint     🔲 未规划
 ├── 模块 6：定期扫描机制        🔲 未规划（6.1 思路已确认）
-└── 模块 7：团队使用要点        ✅ 已完成
+├── 模块 7：团队使用要点        ✅ 已完成
+└── 模块 8：质量保障            🔲 未规划
 ```
 
 ---
@@ -271,7 +272,39 @@ public API 与文档对比
 
 ---
 
-## 待确认的关键决策
+## 模块 8：质量保障
+
+**状态**：🔲 未规划（AI 汇总，待 review 和改进）
+**目标**：通过 AI 子 Agent 机制对代码产出进行质量评估，形成生成-评估的反馈闭环，减少人工 Review 负担。
+
+### 核心思路
+
+> "将前端生成与前端评分分离，可以创建反馈循环，推动生成器产生更强的输出。"
+> "代码审查和 QA 在此扮演与设计评估器相同的结构角色。"
+>
+> — [Anthropic - Harness Design for Long-running Apps](https://www.anthropic.com/engineering/harness-design-long-running-apps)
+
+**可落地的方向**：
+
+| 方向 | 说明 | 优先级 |
+|------|------|--------|
+| **Code Review Agent** | AI 实现修复后，另起一个 Agent 做代码审查，输出问题列表 | P1 |
+| **架构合规检查 Agent** | 检查 AI 修改是否违反模块边界、API 可见性等约束 | P1 |
+| **Sprint 合约机制** | 实现前让 AI 先提方案 + 验收标准，实现后自检是否达标 | P2 |
+| **生成器-评估器双 Agent** | 独立评估器 Agent 调校为怀疑论者，比让生成器自评更可靠 | P2 |
+
+### 调研参考
+
+- [Anthropic Harness Design 精读笔记](./research/anthropic-harness-design-long-running-apps-detailed.md) — 生成器-评估器架构详解
+- 旧规划文档「评估器机制」章节 — 成本分析与待决策项
+
+### 待明确
+
+- [ ] 是否引入 Code Review Agent？评审标准如何定义
+- [ ] 成本评估（Anthropic 实验中评估器成本显著高于生成器）
+- [ ] 与模块 5（Lint）的边界：确定性规则交给 Lint，主观判断交给 Agent
+
+
 
 | 决策 | 选项 | 阻塞项 |
 |------|------|-------|

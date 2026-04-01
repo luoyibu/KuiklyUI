@@ -25,40 +25,38 @@
 
 ---
 
-## 工作流
+## AI 工作流
 
 AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发流程——你负责方向判断，AI 负责执行。下面是两种最常见的场景。
 
 ### Bug 跟进
 
-遇到 bug，不用自己打开 IDE 一行行调试。把现象描述给 AI，让它构造复现 Demo、添加诊断日志、跑起来、读日志分析根因，你只在关键节点确认就好。
+想象一下：遇到 bug 不用自己打开 IDE，不用逐行加断点，不用等编译——把现象告诉 AI，让它全程跑通复现、分析根因、给出方案，你只需要在几个关键节点点头或者给方向就好。这是我们目前最成熟的 AI 工作流。
 
 详见：[Bug 跟进工作流](./workflows-debug.md)
 
 ### 新功能开发
 
-> TODO：待补充
+> TODO：待补充（负责人：@elixxli）
 
 ---
 
 ## 经验总结
 
-用 AI 开发不是一蹴而就，踩过的坑和积累的经验同样重要。下面是团队整理的几条关键实践，附上来源文章供深入阅读。
-
 ---
 
-### ⚠️ 1. 发现 AI 遇到困难，主动让 AI 总结并优化
+### ⚠️ 1. 发现 AI 遇到困难，主动让 AI 自己总结优化
 
-使用 AI 的过程中，你会遇到各种挫败的瞬间——AI 绕圈、反复犯同一个错、给出莫名其妙的答案。这些瞬间需要我们主动识别，并推动 AI 持续优化，而不是每次忍着或绕过去。
-
-> "When the agent struggles, we treat it as a signal: identify what is missing — tools, guardrails, documentation — and feed it back into the repository, always by having Codex itself write the fix."
->
-> — [OpenAI Harness Engineering](https://openai.com/zh-Hans-CN/index/harness-engineering/)
+使用 AI 的过程中，你会遇到各种挫败的瞬间——AI 绕圈、反复犯同一个错、给出莫名其妙的答案。这些瞬间需要我们**主动识别，让 AI 自己总结优化**。这样 AI 才会越用越好用。
 
 > "Anytime you find an agent makes a mistake, you take the time to engineer a solution such that the agent never makes that mistake again."
 >（每当发现 Agent 犯错，就花时间设计解决方案，确保 Agent 永远不会再犯同样的错误）
 >
 > — [Mitchell Hashimoto - My AI Adoption Journey](https://mitchellh.com/writing/my-ai-adoption-journey)
+
+> "When the agent struggles, we treat it as a signal: identify what is missing — tools, guardrails, documentation — and feed it back into the repository, always by having Codex itself write the fix."
+>
+> — [OpenAI Harness Engineering](https://openai.com/zh-Hans-CN/index/harness-engineering/)
 
 **实践方式**：
 
@@ -67,11 +65,22 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 3. 让 AI 自己生成修复（补文档、补错误案例、更新知识库）
 4. 提 PR 合入仓库，下次相同场景 AI 表现更好
 
+**常用 Prompt**：
+```
+我发现你在 [xxx] 遇到了阻塞，帮我复盘一下，
+然后对相关的 skills、知识库、流程做一个优化建议，
+整理成文档提 PR。
+```
+
 **这是一个正向飞轮**：越用越好，而不是越用越烦。
 
 ---
 
 ### 2. 上下文管理：AI 变慢变蠢时怎么办
+
+> 部分模型会表现出**「上下文焦虑」**（context anxiety）：接近上下文限制时提前结束工作、开始走捷径。
+>
+> — [Anthropic - Harness Design for Long-running Apps](https://www.anthropic.com/engineering/harness-design-long-running-apps)
 
 > "Keep utilization in the 40-60% range... designing your entire development process around context management"
 >
@@ -79,6 +88,8 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 
 长会话会积累大量日志输出、重试记录、错误信息，导致 AI 的有效注意力被稀释。
 **表现**：绕圈、反复犯同样错误、分析质量明显下降。
+
+**建议时机**：上下文使用量超过 60%，或者明显感觉 AI 变慢变蠢时。
 
 **第一步：让 AI 把进度总结到文件**
 
@@ -92,10 +103,8 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 
 **第二步：新开会话，读取进度文件继续**
 
-新会话开启后，把 progress.md 给 AI 读，让它理解当前任务状态再继续：
-
 ```
-请先阅读 progress.md，理解我们当前任务的背景和进度，然后继续我们的工作。
+请先阅读 progress.md，理解我们当前任务的背景和进度，然后跟我确认下一步工作
 ```
 
 ---
@@ -115,7 +124,6 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 | 需要在代码库中搜索相关代码 | 告诉 AI「开一个子 Agent 去搜索，把结果汇报给我」 |
 | 需要阅读多个文件了解背景 | 告诉 AI「开一个子 Agent 去读这些文件，总结关键信息」 |
 | 需要生成调研报告 | 让子 Agent 专门负责调研，主 Agent 基于报告做决策 |
-| Bug 跟进中的日志分析 | 主 Agent 专注于分析逻辑，让子 Agent 去抓取和过滤日志 |
 
 **直观判断**：如果一个任务需要大量 Grep/Read/Glob 操作，就适合交给子 Agent。
 
@@ -123,8 +131,8 @@ AI 辅助开发不只是「让 AI 写代码」，而是把 AI 融入你的开发
 
 ## 模型选择
 
-| 场景 | 推荐模型 |
-|------|---------|
-| 日常开发、简单 bug | Claude Sonnet 4.6 |
-| 复杂 bug、根因隐蔽 | Claude Opus 4.6 |
-| 多次尝试仍无进展，换思路 | Kimi 2.5 |
+个人观感，优先按以下顺序选择，取决于大家的 token 消耗情况：
+
+1. **Claude Sonnet 4.6** — 日常首选
+2. **Claude Opus 4.6** — 复杂问题、根因隐蔽时升级
+3. **Kimi 2.5** — 多次尝试仍无进展时，换模型换思路

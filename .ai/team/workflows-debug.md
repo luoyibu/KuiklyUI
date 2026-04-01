@@ -1,120 +1,124 @@
 # Bug 跟进工作流
 
-> 这份文档是团队成员操作指南，描述 AI 辅助 Bug 跟进的完整流程。
-> **核心原则**：人只做 4 件事，其余全部由 AI 完成，无需打开 IDE。
+> 供团队成员阅读。当前为**手动版本**，AI 辅助完成大部分工作，人工参与 4 个关键节点。
+
+**前置依赖**：两个 Skills 已集成到项目，无需额外安装
+- `.agents/skills/systematic-debugging/` — 系统性根因分析
+- `.agents/skills/kuikly-app-runner/` — KuiklyUI 多平台编译运行
+
+> Skills 兼容方案：[HARNESS_OVERVIEW.md 附录 B](../../harness-engineer/HARNESS_OVERVIEW.md#附录-b多工具-skills-兼容)
 
 ---
 
-## 整体流程图
+## 流程总览
 
-```mermaid
-flowchart TD
-    A([👤 描述问题现象\n启用 systematic-debugging]) --> B
-
-    B[🤖 分析代码\n写最小复现 Demo\n加入 demo/ 目录] --> C
-
-    C[🤖 分析可能原因\n在 Demo 中添加关键日志] --> D
-
-    D[🤖 kuikly-app-runner\n编译 → 部署 → 运行] --> E
-
-    E([👤 在设备/模拟器上\n操作复现问题]) --> F
-
-    F{能否复现?}
-
-    F -- 否 --> G[🤖 调整日志或 Demo\n重新编译部署]
-    G --> E
-
-    F -- 是 --> H[🤖 读取日志\n验证假设\n确定根因]
-
-    H --> I[🤖 给出修复方案]
-
-    I --> J([👤 判断根因分析\n和修复方案是否合理])
-
-    J -- 需要调整 --> K[🤖 修正分析或方案]
-    K --> J
-
-    J -- OK --> L[🤖 实施修复]
-
-    L --> M([👤 Review 修复代码])
-
-    M -- 需要修改 --> N[🤖 按 Review 意见修改]
-    N --> M
-
-    M -- OK --> O[🤖 提交代码\n发起 MR 到工蜂]
-
-    O --> P([✅ 完成])
-
-    style A fill:#dbeafe,stroke:#3b82f6
-    style E fill:#dbeafe,stroke:#3b82f6
-    style J fill:#dbeafe,stroke:#3b82f6
-    style M fill:#dbeafe,stroke:#3b82f6
-    style P fill:#d1fae5,stroke:#10b981
+```
+👤 描述问题
+     ↓
+🤖 Phase 1：构建复现环境（AI 说明方案 → 👤 确认）
+     ↓
+🤖 Phase 2：诊断分析（添加 KLog 日志）
+     ↓
+🤖 Phase 3：编译部署运行（kuikly-app-runner）→ 👤 操作复现
+     ↓
+🤖 Phase 4：读日志 → 根因确认（👤 每次循环确认）
+     ↙          ↘
+日志不足        根因确认
+补充日志 ↩      ↓
+              🤖 Phase 5：给出修复方案 → 👤 确认
+                   ↓
+              🤖 实施修复 → 👤 Review → 🤖 提交 MR
 ```
 
-**蓝色节点**：需要人工参与的步骤（共 4 步）
+**人工参与的 4 个节点**：确认复现方案 / 操作复现 / 每次根因循环确认 / Review 修复代码
 
 ---
 
-## 人工参与的 4 件事
+## 详细流程
 
-| 步骤 | 你需要做什么 |
-|------|------------|
-| **1. 描述问题** | 描述现象（平台、复现步骤、预期 vs 实际），并注明 `/systematic-debugging` |
-| **2. 操作复现** | 在设备/模拟器上按步骤操作，AI 没法点屏幕 |
-| **3. 判断方案** | 确认 AI 的根因分析是否合理，修复方案是否 OK |
-| **4. Review 代码** | 审查 AI 提交的修复代码 |
+### 启动
+
+在对话中描述问题即可，AI 会自动识别并启动 Bug 跟进流程：
+
+```
+[平台：iOS/Android/HarmonyOS]
+[现象：...]
+[复现步骤：...]
+[预期 vs 实际：...]
+```
 
 ---
 
-## 使用方式
+### Phase 1：构建复现环境
 
-### 启动 Bug 跟进
+**AI 做的事**：
+- 分析问题描述，在 `demo/` 目录下确定复现 Demo 的构建思路
+- 说明打算如何构建（使用哪个 DSL、模拟哪个场景）
+- **等待开发者确认**后再动手
 
-```
-/systematic-debugging
+**[👤 PAUSE]** 确认复现方案，或提供更准确的复现思路
 
-问题描述：[平台] [现象]
-复现步骤：
-1. ...
-2. ...
-预期结果：...
-实际结果：...
-```
-
-### AI 会自动
-
-1. 分析相关代码，在 `demo/` 下创建最小复现 Demo（如 `demo/.../BugReproDemo.kt`）
-2. 添加 `KLog` 诊断日志，调用 `/kuikly-app-runner` 编译部署
-3. 等你复现后，读取 `./logs/` 下的日志，确认根因
-4. 给出修复方案 → 实施 → 提交 → 发起工蜂 MR
-
-### 发起 MR
-
-AI 使用工蜂 MCP 工具发起 MR，不是 `gh pr create`：
-
-```
-mcp__gongfeng__create_merge_request
-  project_id: <工蜂项目 ID>
-  source_branch: <修复分支>
-  target_branch: main
-  title: "fix: ..."
-```
-
-> 如果 AI 不知道工蜂项目 ID，提示它执行 `mcp__gongfeng__search_projects` 查找。
+> Demo 命名规范：`BugRepro{功能名}Page.kt`，放在 `demo/src/commonMain/.../pages/debug/`
 
 ---
 
-## Demo 管理
+### Phase 2：诊断分析
 
-- 复现 Demo 创建在 `demo/` 目录，文件名加 `BugRepro` 前缀
-- 提交 MR 时 AI 会询问是否保留 Demo，通常不需要合入主干
-- 如果 Demo 揭示了值得保留的典型用例，可以重命名后保留
+**AI 做的事**（遵循 `systematic-debugging` 方法论）：
+- 搜索相关代码，列出 2-3 个可能原因并排优先级
+- 在 Demo 中加入关键 `KLog` 诊断日志，覆盖每个假设的验证点
+- **不在此阶段提出修复**（systematic-debugging 铁律：根因未确认前不修复）
 
 ---
 
-## 所用 Skills
+### Phase 3：编译部署运行
 
-| Skill | 作用 |
-|-------|------|
-| `systematic-debugging` | 驱动系统性根因分析，防止 AI 直接猜测修复 |
-| `kuikly-app-runner` | 编译、部署、运行 iOS/Android/HarmonyOS，捕获日志 |
+**AI 做的事**（调用 `kuikly-app-runner`）：
+- 清理旧日志：`rm -rf logs && mkdir -p logs`
+- 编译对应平台 App 并部署到模拟器/真机
+- 提示开发者可以开始操作
+
+**[👤 PAUSE]** 在设备/模拟器上操作，复现问题
+
+---
+
+### Phase 4：根因确认（可循环）
+
+**AI 做的事**：
+- 读取 `./logs/` 下的日志
+- 对照各假设，分析日志证据
+- 给出结论：`根因置信度 [高/中/低]：...`
+
+**[👤 PAUSE]** 开发者确认：根因分析是否合理？
+
+```
+选项 A：根因确认 → 进入 Phase 5
+选项 B：需要更多日志 → AI 补充日志，回到 Phase 3
+选项 C：假设方向错误 → AI 重新分析，回到 Phase 2
+```
+
+> 每次循环都需要开发者确认，防止 AI 在错误方向上无限迭代
+
+---
+
+### Phase 5：修复
+
+**AI 做的事**：
+- 给出修复方案（说明修改点和理由）
+- **等待开发者确认**后再实施
+
+**[👤 PAUSE]** 确认修复方案是否合理
+
+**AI 继续**：
+- 实施修复
+- 提交代码，通过工蜂 MCP（`mcp__gongfeng__create_merge_request`）发起 MR
+
+**[👤 PAUSE]** Review 修复代码
+
+---
+
+## TODO
+
+- [ ] **沉淀为 Skills**：将本流程固化为 `kuikly-debug` SKILL.md，引用 `systematic-debugging` 方法论和 `kuikly-app-runner`，通过明确的 `[PAUSE]` 节点控制人工确认点，实现一键触发
+
+- [ ] **探索自动化测试**：调研用自动化测试工具（如 UI 自动化、截图对比）替代「开发者操作复现」这一步，让 AI 能自主完成完整的复现-验证闭环，进一步减少人工参与

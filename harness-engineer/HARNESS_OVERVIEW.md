@@ -14,12 +14,6 @@
 
 Harness 是围绕 AI 模型构建的一套系统：知识库、工作流规范、架构约束、自动化工具。它决定了 AI 在你的代码库中能干多少、干得多好。
 
-**核心结论（来自多篇调研）**：
-- AI 失败通常是 **配置问题**，不是模型问题
-- 同样的模型，在设计良好的 Harness 中，产出质量可以天壤之别
-- KuiklyUI 作为跨平台 KMP 项目，比普通项目更需要系统化的 Harness
-
----
 
 ## 整体架构
 
@@ -38,70 +32,59 @@ KuiklyUI Harness
 
 ## 模块 1：知识库管理
 
+**状态**：✅ 已完成
 **目标**：让 AI 每次会话都能快速理解 KuiklyUI 的架构、规范和当前状态。
+
+### 设计参考
+
+- [A Complete Guide to AGENTS.md](https://www.aihero.dev/a-complete-guide-to-agents-md) — 渐进式披露、< 60 行原则、少即是多
+- [Writing a Good CLAUDE.md](https://www.humanlayer.dev/blog/writing-a-good-claude-md) — 触发条件写法、只放代码管不了的东西
 
 ### 核心原则
 
-- **少即是多**：`AGENTS.md` 控制在 60 行以内，只放普遍适用的内容
-- **渐进式披露**：`AGENTS.md` 是地图，细节放在 `docs/` 子文档中
+- **少即是多**：根目录 `AGENTS.md` 只放普遍适用内容，控制在合理范围内
+- **渐进式披露**：`AGENTS.md` 是地图 + 路由表，细节放在 `.ai/` 子文档中；子文档前 5 行写场景说明，AI 按需读取
 - **只放代码管不了的东西**：能用 lint 强制的规范，不要放进 AGENTS.md
+- **主动触发**：每份子文档前 5 行明确写「以下场景读取本文件」，AI 先读前 5 行判断相关性再决定是否读完整内容
 
-### 文件结构
-
-```
-AGENTS.md                     # 入口地图（< 60 行）
-ARCHITECTURE.md               # 架构顶层地图
-docs/
-  ├── setup.md                # 项目构建、运行、测试命令
-  ├── architecture/           # 架构详解
-  │   ├── module-structure.md # 模块划分与职责
-  │   ├── layer-rules.md      # 分层规则（Render/Core 边界）
-  │   └── platform-guide.md  # 跨平台代码组织（expect/actual）
-  ├── conventions/            # 编码规范
-  │   ├── kotlin-style.md     # Kotlin/KMP 规范
-  │   └── api-visibility.md  # internal vs public 规范
-  ├── workflows/              # 工作流文档（指向 模块 2、3）
-  └── references/             # 参考资料（错误模式、反模式清单）
-      ├── common-errors.md    # 常见错误与修复方法
-      └── anti-patterns.md   # 禁止的代码模式
-```
-
-### AGENTS.md 必须包含
-
-1. 一句话项目描述
-2. 技术栈（KMP 版本、构建工具）
-3. 非标准构建/测试命令
-4. 关键架构约束（2-3 条最重要的）
-5. 指向 docs/ 各子文档的链接
-
-### AGENTS.md 不能包含
-
-- 代码风格细节（交给 lint/formatter）
-- 完整的 API 文档（放在 docs/）
-- 历史背景（放在 design-docs/）
-
-### 多工具兼容策略（已确认）
+### 多工具兼容策略
 
 | 工具 | 读取文件 | 说明 |
 |------|---------|------|
-| **Claude Code** | `CLAUDE.md` | 主文件 |
+| **Claude Code** | `CLAUDE.md` | 软链接到 `AGENTS.md` |
 | **OpenCode** | `AGENTS.md` | 无 AGENTS.md 时回退读 `CLAUDE.md` |
 | **CodeBuddy** | `CODEBUDDY.md` | 无 CODEBUDDY.md 时回退读 `AGENTS.md` |
 | **Cursor** | `AGENTS.md` | 支持根目录及子目录 |
 
-**实现方案**：`AGENTS.md` 为真实文件，`CLAUDE.md` 为软链接指向它。
-```bash
-ln -s AGENTS.md CLAUDE.md
+**实现**：`AGENTS.md` 为真实文件，`CLAUDE.md` 为软链接（`ln -s AGENTS.md CLAUDE.md`）。
+
+### 已实施的知识库结构
+
 ```
-- 只维护一份内容，编辑任意一个文件，另一个同步变化
-- Git 追踪软链接本身，team clone 后完整可用
-
-### 待完成
-
-- [ ] 编写 `AGENTS.md` 初稿（渐进式披露结构）
-- [ ] 创建 `CLAUDE.md` 软链接
-- [ ] 编写 `ARCHITECTURE.md`（模块地图）
-- [ ] 建立 `harness/docs/` 目录结构，迁移 `.cursor/rules/kuikly.mdc` 内容
+AGENTS.md                          # 根目录入口（模块速查 + 依赖边界 + 知识库索引）
+CLAUDE.md -> AGENTS.md             # 软链接，Claude Code 兼容
+.ai/
+├── architecture/
+│   └── AGENTS.md                  # 三层架构、模块结构、依赖关系、核心类
+├── coding-standards/
+│   └── AGENTS.md                  # 版权头、包名规则、KR 命名、日志规范
+├── self-dsl/
+│   └── AGENTS.md                  # 自研 DSL 开发指南（组件 API 索引到官网文档）
+├── compose-dsl/
+│   └── AGENTS.md                  # Compose DSL 开发指南（包名规则、架构原理）
+└── references/
+    ├── AGENTS.md                  # references 路由表
+    ├── common-errors.md           # 错误路由表
+    ├── errors/
+    │   ├── self-dsl-errors.md     # 自研 DSL 专属错误
+    │   ├── compose-errors.md      # Compose DSL 专属错误
+    │   └── kmp-errors.md          # KMP 通用错误
+    ├── native-bridge.md           # 原生扩展开发指南
+    ├── native-bridge-internals.md # 通信原理深度参考
+    ├── lazy-scroll.md             # LazyList/Grid 滚动机制
+    ├── nested-scroll.md           # 嵌套滚动实现原理
+    └── publish.md                 # 发布管理
+```
 
 ---
 
@@ -432,10 +415,8 @@ ln -s AGENTS.md CLAUDE.md
 - [x] 迁移 `patterns/native-bridge.md` → `.ai/references/native-bridge.md`
 - [x] 旧 `.ai/index.md` 核心原则提炼到规划文档，原文件可删
 - [x] 旧 `.ai/architecture.md` 多版本构建说明迁移到 `AGENTS.md`，原文件可删
-- [ ] 迁移 `debugging-guide.md`（归入 references 或单独目录）
-- [ ] 迁移 `platform-specifics.md`（归入 references 或单独目录）
 - [x] 建立 `.ai/references/common-errors.md`（整合 kuikly.mdc 错误章节）
-- [ ] 创建 `CLAUDE.md` 软链接（`ln -s AGENTS.md CLAUDE.md`）
+- [x] 创建 `CLAUDE.md` 软链接（`ln -s AGENTS.md CLAUDE.md`）
 - [ ] 将 coding-standards 关键规则（版权头、包名）内联到 AGENTS.md（待评估）
 
 ### 待调研 TODO

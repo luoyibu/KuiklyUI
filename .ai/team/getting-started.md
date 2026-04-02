@@ -5,7 +5,7 @@
 ## KuiklyUI Harness 设计方案
 
 本指南基于 KuiklyUI 团队的 AI 编程 Harness 工程建设规划，详见：
-[KuiklyUI Harness 工程建设总览](../../harness-engineer/HARNESS_OVERVIEW.md)
+[KuiklyUI Harness 工程建设总览](./HARNESS_OVERVIEW.md)
 
 ## 支持的工具
 

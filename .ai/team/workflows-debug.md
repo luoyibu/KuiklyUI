@@ -11,7 +11,7 @@
 - `.agents/skills/systematic-debugging/` — 系统性根因分析
 - `.agents/skills/kuikly-app-runner/` — KuiklyUI 多平台编译运行
 
-当前兼容 Claude Code、OpenCode、Cursor、CodeBuddy、Claude-internal，[兼容方案详情](../../harness-engineer/HARNESS_OVERVIEW.md#附录-b多工具-skills-兼容)
+当前兼容 Claude Code、OpenCode、Cursor、CodeBuddy、Claude-internal，[兼容方案详情](./HARNESS_OVERVIEW.md#附录-b多工具-skills-兼容)
 
 ---
 
@@ -21,9 +21,9 @@
 
 | 难度 | 推荐模型 | 适用场景 |
 |------|---------|---------|
-| 简单 | Claude Sonnet 4.6 | 明确复现路径、日志直接指向原因 |
-| 复杂 | Claude Opus 4.6 | 多模块交互、根因隐蔽、多次分析仍不确定 |
-| 备选 | Kimi 2.5 | 上述模型多次尝试仍无进展时，换模型换思路 |
+| 优先 | Claude Sonnet 4.6 | 复杂bug |
+| 复杂 | Claude Opus 4.6 | 根因隐蔽、多次分析仍不确定 |
+| 简单 | Kimi 2.5 | 简单bug |
 
 ---
 
@@ -55,7 +55,7 @@
    复现成功 → 你说：
    "我刚才已经复现了这个 bug，可以稳定复现。
     接下来请用 systematic-debugging skill 来详细分析这个 bug 的可能原因，
-    注意在关键节点添加 KLog 诊断日志，覆盖你猜测的每个假设点，
+    注意在关键节点添加诊断日志，覆盖你猜测的每个假设点，
     然后重新把 App 跑起来，我会再次复现，
     然后你基于日志来确认是否符合你猜测的 bug 原因。"
 

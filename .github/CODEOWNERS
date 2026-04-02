@@ -37,10 +37,8 @@
 /gradlew*  @elixxli @iPel
 /.gitignore @iPel @hidawei
 
-# AI knowledge base
-/.ai/ @luoyibu
-/AGENTS.md @luoyibu
-/CLAUDE.md @luoyibu
+# Harness version pin (AI knowledge base lives in kuikly-harness private repo)
+/.harness-version @luoyibu
 
 
 

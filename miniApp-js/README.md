@@ -36,7 +36,7 @@ miniApp-js/
 ```bash
 object BuildPlugin {
     val kuikly by lazy {
-        "com.tencent.kuikly-open:core-gradle-plugin:2.18.1-2.0.21"
+        "com.tencent.kuikly-open:core-gradle-plugin:2.20.0-2.0.21"
     }
 }
 ```
@@ -45,7 +45,7 @@ object BuildPlugin {
 
 ```bash
 dependencies {
-    compileOnly("com.tencent.kuikly-open:core-ksp:2.18.1-2.0.21") {
+    compileOnly("com.tencent.kuikly-open:core-ksp:2.20.0-2.0.21") {
         add("kspIosArm64", this)
         add("kspIosX64", this)
         add("kspIosSimulatorArm64", this)
@@ -57,13 +57,20 @@ dependencies {
 }
 ```
 
-使用js按页分包时，如有多模块，需要关闭多模块，如`demo/build.gradle.kts`里配置：
+`demo/build.gradle.kts`配置：
 
 ```bash
+// 添加获取 pageNameList 的函数
+fun getPageNameList(): String {
+    return project.properties["pageNameList"] as? String ?: ""
+}
+
 ksp {
-    arg("enableMultiModule", "false")
+    arg("pageNameList", getPageNameList())
 }
 ```
+
+这样当执行 `./gradlew :demo:packEntryJSBundleDebug -PpageNameList=HelloWorldPage` 时，`-PpageNameList` 的值会通过 `getPageNameList()` 函数传递给 KSP 的 `option["pageNameList"]`，KSP 就能正确识别 `packEntryJSBundle` 上下文，为每个页面生成独立的 `{PageName}Entry.kt` 文件。
 
 ## 开发指南
 

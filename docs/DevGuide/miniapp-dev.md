@@ -78,3 +78,15 @@ demo里面的src/commonMain/assets下的文件，需要复制到dist/assets目�
 详细清单、使用示例、自行扩展指南与 AI Prompt 模板，请参考：
 
 - [微信小程序 API 接入](miniapp-wx-apis.md)
+
+## 自定义字体
+
+在微信小程序中使用自定义字体时，需要通过特定方式加载字体文件并通知 Kuikly 重新测量文本。支持本地加载（base64）和远程加载（CDN）两种方式。
+
+详细接入步骤请参考：
+
+- [微信小程序自定义字体使用指引](miniapp-custom-font.md)
+
+## 常见问题
+
+接入或开发过程中如遇到问题，请参考[微信小程序接入常见问题](../QA/miniapp-qa.md)

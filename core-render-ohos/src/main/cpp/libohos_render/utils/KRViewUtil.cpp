@@ -244,6 +244,18 @@ uint32_t ArkUINativeNodeAPI::getTotalChildCount(ArkUI_NodeHandle node) {
     return impl_->getTotalChildCount(node);
 }
 
+ArkUI_NodeHandle ArkUINativeNodeAPI::getParent(ArkUI_NodeHandle node) {
+    KREnsureMainThread();
+    KUIKLY_CHECK_NODE_OR_RETURN_NULL(node);
+    return impl_->getParent(node);
+}
+
+ArkUI_NodeHandle ArkUINativeNodeAPI::getChildAt(ArkUI_NodeHandle node, int32_t position) {
+    KREnsureMainThread();
+    KUIKLY_CHECK_NODE_OR_RETURN_NULL(node);
+    return impl_->getChildAt(node, position);
+}
+
 int32_t ArkUINativeNodeAPI::registerNodeCustomEvent(ArkUI_NodeHandle node, ArkUI_NodeCustomEventType eventType,
                                                     int32_t targetId, void *userData) {
     KREnsureMainThread();
@@ -721,6 +733,25 @@ void ResetArkUIImageTintColor(ArkUI_NodeHandle handle) {
     GetNodeApi()->resetAttribute(handle, NODE_IMAGE_COLOR_FILTER);
 }
 
+void SetArkUIImageColorFilter(ArkUI_NodeHandle handle, const std::vector<float> &matrix) {
+    if (!handle || matrix.size() < 20) {
+        return;
+    }
+    ArkUI_NumberValue value[20];
+    for (int i = 0; i < 20; ++i) {
+        value[i].f32 = matrix[i];
+    }
+    ArkUI_AttributeItem item = {value, 20};
+    GetNodeApi()->setAttribute(handle, NODE_IMAGE_COLOR_FILTER, &item);
+}
+
+void ResetArkUIImageColorFilter(ArkUI_NodeHandle handle) {
+    if (!handle) {
+        return;
+    }
+    GetNodeApi()->resetAttribute(handle, NODE_IMAGE_COLOR_FILTER);
+}
+
 void SetArkUIImageCapInsets(ArkUI_NodeHandle handle, float top, float left, float bottom, float right) {
     if (!handle) {
         return;
@@ -828,7 +859,8 @@ KRPoint GetArkUIScrollContentOffset(ArkUI_NodeHandle handle) {
     return item ? KRPoint{item->value[0].f32, item->value[1].f32} : KRPoint();
 }
 
-void SetArkUIContentOffset(ArkUI_NodeHandle handle, float offset_x, float offset_y, bool animate, int duration, int curve) {
+void SetArkUIContentOffset(ArkUI_NodeHandle handle, float offset_x, float offset_y, bool animate, int duration, int curve,
+                           float damping) {
     if (!handle) {
         return;
     }
@@ -836,19 +868,27 @@ void SetArkUIContentOffset(ArkUI_NodeHandle handle, float offset_x, float offset
     if (duration < 0) {
         duration = 0;
     }
+    int durationForArkUI = duration;
     int enableDefaultSpringAnimation = animate ? 1 : 0;
     if (duration > 0 && animate) {
-        // Default spring animation should be disabled when custom animation duration is specified,
-        // otherwise custom animation duration will not take effect.
-        enableDefaultSpringAnimation = 0;
+        if (curve == 0 && damping == 1.0f) {
+            // Align with Android: use the platform default scroll animation when no extra spring effect is needed.
+            durationForArkUI = 0;
+            enableDefaultSpringAnimation = 1;
+        } else {
+            // Default spring animation should be disabled when custom animation duration is specified,
+            // otherwise custom animation duration will not take effect.
+            enableDefaultSpringAnimation = 0;
+        }
     }
     ArkUI_NumberValue value[] = {
         {.f32 = offset_x},
         {.f32 = offset_y},
-        {.i32 = duration},
+        {.i32 = durationForArkUI},
         {.i32 = curve == 0 ? ARKUI_CURVE_EASE : ARKUI_CURVE_LINEAR},
         {.i32 = enableDefaultSpringAnimation},  // whether to enable the default spring animation
-        {.i32 = 1}                              // whether scrolling can cross the boundary
+        {.i32 = 1},                             // whether scrolling can cross the boundary
+        {.i32 = 1}                              // whether the component can stop at an overscrolled position (API 20+)
     };
     ArkUI_AttributeItem item = {value, sizeof(value) / sizeof(ArkUI_NumberValue)};
     GetNodeApi()->setAttribute(handle, NODE_SCROLL_OFFSET, &item);
@@ -948,14 +988,36 @@ void UpdateInputNodePlaceholder(ArkUI_NodeHandle node, const std::string &placeh
 
 void UpdateInputNodePlaceholderColor(ArkUI_NodeHandle node, uint32_t placeholder_color) {
     ArkUI_NumberValue value = {.u32 = placeholder_color};
-    ArkUI_AttributeItem item = {&value, sizeof(ArkUI_NumberValue)};
+    ArkUI_AttributeItem item = {&value, 1};
     GetNodeApi()->setAttribute(node, NODE_TEXT_INPUT_PLACEHOLDER_COLOR, &item);
 }
 
 void UpdateInputNodeCaretrColor(ArkUI_NodeHandle node, uint32_t caret_color) {
     ArkUI_NumberValue value = {.u32 = caret_color};
-    ArkUI_AttributeItem item = {&value, sizeof(ArkUI_NumberValue)};
+    ArkUI_AttributeItem item = {&value, 1};
     GetNodeApi()->setAttribute(node, NODE_TEXT_INPUT_CARET_COLOR, &item);
+}
+
+uint32_t ClampSelectionColorAlpha(uint32_t color) {
+    uint32_t alpha = (color >> kColorAlphaShift) & kColorAlphaMask;
+    if (alpha > kSelectionColorMaxAlpha) {
+        color = (kSelectionColorMaxAlpha << kColorAlphaShift) | (color & kColorRGBMask);
+    }
+    return color;
+}
+
+void UpdateInputNodeSelectionColor(ArkUI_NodeHandle node, uint32_t color) {
+    color = ClampSelectionColorAlpha(color);
+    ArkUI_NumberValue value = {.u32 = color};
+    ArkUI_AttributeItem item = {&value, 1};
+    GetNodeApi()->setAttribute(node, NODE_TEXT_INPUT_SELECTED_BACKGROUND_COLOR, &item);
+}
+
+void UpdateTextAreaNodeSelectionColor(ArkUI_NodeHandle node, uint32_t color) {
+    color = ClampSelectionColorAlpha(color);
+    ArkUI_NumberValue value = {.u32 = color};
+    ArkUI_AttributeItem item = {&value, 1};
+    GetNodeApi()->setAttribute(node, NODE_TEXT_AREA_SELECTED_BACKGROUND_COLOR, &item);
 }
 
 void UpdateInputNodeTextAlign(ArkUI_NodeHandle node, const std::string &text_align) {

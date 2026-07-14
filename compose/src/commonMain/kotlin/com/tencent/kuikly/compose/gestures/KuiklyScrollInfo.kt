@@ -66,6 +66,13 @@ class KuiklyScrollInfo {
     var composeOffset = 0f
 
     /**
+     * Temporary native-coordinate correction used while a Pager snap animation is running.
+     * When items are inserted before the snap target, this keeps the target item's native frame
+     * anchored to the original snap target offset until the snap settles.
+     */
+    var snapAnchorOffsetCorrection = 0
+
+    /**
      * Current contentView size, used to expand the bottom boundary
      */
     var currentContentSize by mutableStateOf((DEFAULT_CONTENT_SIZE * getDensity()).toInt())
@@ -132,9 +139,21 @@ class KuiklyScrollInfo {
         }
 
     /**
+     * Extra top inset on the pull-to-refresh lazy item in pixels,
+     * from [com.tencent.kuikly.compose.material3.pullToRefreshItem.topInset].
+     */
+    var pullToRefreshTopInsetPx: Int = 0
+
+    /**
      * Cached total number of items, used to detect changes in item count
      */
     var cachedTotalItems: Int = 0
+
+    /**
+     * When true, [tryExpandStartSize] is skipped. Used by [ScrollableTabRow] whose content
+     * size is already exact via [ScrollState.maxValue] + viewport.
+     */
+    var skipExpandStartSize: Boolean = false
 
     /**
      * Sticky Header Position Cache Manager
@@ -180,6 +199,7 @@ class KuiklyScrollInfo {
         itemMainSpaceCache.clear()
         stickyItemKey = null
         cachedTotalItems = 0
+        pullToRefreshTopInsetPx = 0
     }
 
     /**

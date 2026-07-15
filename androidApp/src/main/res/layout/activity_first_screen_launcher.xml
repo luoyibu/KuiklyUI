@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="48dp"
+        android:layout_marginBottom="16dp"
+        android:text="Kuikly Demo"
+        android:textColor="#222222"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:lineSpacingExtra="4dp"
+        android:text="先等 App 完全起来，再点下面按钮进入 LazyRowReuseDemo。\n首屏对比看 logcat：FirstScreenPerf / firstPaintCost。"
+        android:textColor="#666666"
+        android:textSize="13sp" />
+
+    <Button
+        android:id="@+id/btn_router"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#2196F3"
+        android:text="Router 首页"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btn_first_screen_a"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#4CAF50"
+        android:text="首屏 A · beyond=5"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btn_first_screen_b"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:backgroundTint="#FF9800"
+        android:text="首屏 B · prefetch + 1屏窗口"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+</LinearLayout>

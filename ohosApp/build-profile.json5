@@ -1,7 +1,19 @@
 {
   "app": {
     "signingConfigs": [
-
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/qibu/.ohos/config/default_ohosApp_ZDfhhs4NXGdYNHOPyKkfSp6oc0CedhFadyrUiwM7-b8=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BF20BF040D8A4479766A0DE4F84930821576599AB24E286D4BB58099D8F44F5D5115D4ADD2B67B5",
+          "profile": "/Users/qibu/.ohos/config/default_ohosApp_ZDfhhs4NXGdYNHOPyKkfSp6oc0CedhFadyrUiwM7-b8=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/qibu/.ohos/config/default_ohosApp_ZDfhhs4NXGdYNHOPyKkfSp6oc0CedhFadyrUiwM7-b8=.p12",
+          "storePassword": "0000001B957BCABA89C2A17EEBF5D7A48DAA76D4C0A8905757EE40BB01AA3AC069D1DB4673855E831A1BD3"
+        }
+      }
     ],
     "products": [
       {

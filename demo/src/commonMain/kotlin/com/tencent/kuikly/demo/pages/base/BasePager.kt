@@ -24,6 +24,7 @@ import com.tencent.kuikly.core.pager.IViewCreator
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.reactive.handler.*
 import com.tencent.kuikly.core.views.RichText
+import com.tencent.kuikly.demo.DemoLazyPrefetchBootstrap
 import com.tencent.kuikly.demo.pages.base.extension.ExtRichTextView
 import com.tencent.kuikly.demo.pages.base.extension.ExtTextView
 
@@ -58,6 +59,7 @@ internal abstract class BasePager : Pager() {
 
     override fun created() {
         super.created()
+        DemoLazyPrefetchBootstrap.applyGlobalPrefetchForDebug()
 
         registerViewCreator(ViewConst.TYPE_TEXT_CLASS_NAME, object : IViewCreator {
             override fun createView(): DeclarativeBaseView<*, *> {

@@ -1,7 +1,10 @@
 package com.tencent.kuikly.demo.pages.compose
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import com.tencent.kuikly.compose.ComposeContainer
+import com.tencent.kuikly.compose.foundation.ExperimentalFoundationApi
 import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.foundation.Image
 import com.tencent.kuikly.compose.foundation.background
@@ -18,6 +21,9 @@ import com.tencent.kuikly.compose.foundation.layout.size
 import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.foundation.lazy.LazyRow
+import com.tencent.kuikly.compose.foundation.lazy.enableLazyListPrefetch
+import com.tencent.kuikly.compose.foundation.lazy.layout.LazyLayoutCacheWindow
+import com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState
 import com.tencent.kuikly.compose.foundation.lazy.grid.GridCells
 import com.tencent.kuikly.compose.foundation.lazy.grid.LazyHorizontalGrid
 import com.tencent.kuikly.compose.foundation.pager.HorizontalPager
@@ -34,7 +40,9 @@ import com.tencent.kuikly.compose.ui.text.style.TextAlign
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.tencent.kuikly.compose.ui.unit.sp
 import com.tencent.kuikly.compose.extension.bouncesEnable
+import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.core.annotations.Page
+import com.tencent.kuikly.core.log.KLog
 
 /**
  * ScrollerView 复用测试：覆盖 LazyRow / LazyHorizontalGrid / HorizontalPager 跨类型复用。
@@ -44,7 +52,29 @@ import com.tencent.kuikly.core.annotations.Page
  *
  * 每张卡片显示 "ROW.COL"，若数字与行号不匹配则说明复用出了问题。
  */
+private const val LOG_TAG = "FirstScreenPerf"
+
+/**
+ * 首屏对比（iOS `pageLoadTime.firstPaintCost` / `[KuiklyFirstPaint]`）：
+ * - A [FirstScreenMode.Beyond5]：外层 LazyColumn `beyondBoundsItemCount=5`
+ * - B [FirstScreenMode.PrefetchCacheWindow]：`beyond=0` + prefetch + 一屏 CacheWindow
+ *
+ * 从 iOS **RootViewController** 两个按钮进入（App 已热身后跳转，避免冷启动污染）。
+ * 也可 router 传 pageData `firstScreenMode`：`beyond5` | `prefetch_cache`。
+ */
+private enum class FirstScreenMode(val key: String) {
+    Beyond5("beyond5"),
+    PrefetchCacheWindow("prefetch_cache"),
+    ;
+
+    companion object {
+        fun fromKey(key: String): FirstScreenMode =
+            entries.find { it.key == key } ?: Beyond5
+    }
+}
+
 @Page("LazyRowReuseDemo")
+@OptIn(ExperimentalFoundationApi::class)
 class LazyRowReuseDemo : ComposeContainer() {
     override fun willInit() {
         super.willInit()
@@ -76,15 +106,59 @@ private fun scrollTypeOf(rowIndex: Int): ScrollType = when (rowIndex % 3) {
 // ——————————————— 主体 ———————————————
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun ScrollerReuseTest() {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            Text(
-                text = "LazyRow / Grid / Pager 交替出现，不设 contentType，验证跨类型复用",
-                modifier = Modifier.padding(12.dp),
-                fontSize = 12.sp,
-                color = Color.Gray,
+    val pager = LocalActivity.current.getPager()
+    val modeKey = pager.pageData.params.optString("firstScreenMode", FirstScreenMode.Beyond5.key)
+    val mode = FirstScreenMode.fromKey(modeKey)
+    val beyondBounds = if (mode == FirstScreenMode.Beyond5) 5 else 0
+    val cacheWindow =
+        remember {
+            // 一屏 ahead：viewport 高度的 100%，behind 不预取
+            LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0f)
+        }
+    val defaultListState = rememberLazyListState()
+    val cacheWindowListState = rememberLazyListState(cacheWindow = cacheWindow)
+    val listState =
+        if (mode == FirstScreenMode.PrefetchCacheWindow) cacheWindowListState else defaultListState
+    val columnModifier =
+        Modifier
+            .fillMaxSize()
+            .then(
+                if (mode == FirstScreenMode.PrefetchCacheWindow) {
+                    Modifier.enableLazyListPrefetch()
+                } else {
+                    Modifier
+                },
             )
+
+    SideEffect {
+        val line =
+            "[$LOG_TAG] page=LazyRowReuseDemo mode=$modeKey " +
+                "beyondBounds=$beyondBounds prefetch=${mode == FirstScreenMode.PrefetchCacheWindow} " +
+                "cacheWindow=${if (mode == FirstScreenMode.PrefetchCacheWindow) "ahead1x" else "off"}"
+        println(line)
+        KLog.i(LOG_TAG, line)
+    }
+
+    LazyColumn(
+        modifier = columnModifier,
+        state = listState,
+        beyondBoundsItemCount = beyondBounds,
+    ) {
+        item {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "首屏模式（进入前在 RootViewController 选择，改模式请返回重进）",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                )
+                Text(
+                    text = "mode=$modeKey beyond=$beyondBounds prefetch=${mode == FirstScreenMode.PrefetchCacheWindow}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF333333),
+                )
+            }
         }
 
         // 不设 contentType → 默认 null → 三种类型之间会互相复用

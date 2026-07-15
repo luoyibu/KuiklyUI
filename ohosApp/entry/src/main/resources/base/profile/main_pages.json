@@ -1,5 +1,6 @@
 {
   "src": [
+    "pages/FirstScreenLauncher",
     "pages/Index",
     "pages/GestureThrough",
     "pages/KuiklyInList",

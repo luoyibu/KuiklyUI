@@ -14,15 +14,19 @@
  */
 
 import SwiftUI
-//import shared
 
+/// 原生壳：App 冷启动后先停留在此页，再点按钮进入 Kuikly 页面，首屏耗时不受冷启动干扰。
+private struct NativeRootView: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UINavigationController {
+        UINavigationController(rootViewController: RootViewController())
+    }
 
+    func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {}
+}
 
 struct ContentView: View {
-  //  let greet = Greeting().greet()
-
     var body: some View {
-        KuiklyRenderViewPage(pageName: "router", data: [:]).ignoresSafeArea()
+        NativeRootView().ignoresSafeArea()
     }
 }
 

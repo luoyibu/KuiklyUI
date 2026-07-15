@@ -166,21 +166,59 @@ static NSString * const kTurboDisplayTestPageName = @"TurboDisplayAppLoadTestPag
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     [_delegator viewDidDisappear];
-    
-    KRPerformanceManager *manager = [_delegator performanceManager];
-    NSDictionary *startTimes = manager.stageStartTimes;
-    NSDictionary *durations = manager.stageDurations;
-    KRMemoryMonitor *mem = [manager memoryMonitor];
-    KRFPSMonitor *fps1 = [manager mainFPS];
-    KRFPSMonitor *fps2 = [manager kotlinFPS];
-    
-    int m = [mem avgIncrementMemory] / 1024 / 1024;
-    float fps11 = fps1.avgFPS;
-    float fps22 = fps2.avgFPS;
-    NSLog(@"xxxx, %i, %f %f", m, fps11, fps22);
-    NSLog(@"xxxx, start: %@ \n duration%@", startTimes.description, durations.description);
-
+    [self p_logPerformanceReportOnPageExit];
 }
+
+/// Structured FPS report for manual scroll perf tests (grep: KuiklyPerfReport).
+- (void)p_logPerformanceReportOnPageExit {
+    KRPerformanceManager *manager = [_delegator performanceManager];
+    if (!manager) {
+        NSLog(@"[KuiklyPerfReport] page=%@ error=performanceManager_nil", _pageName ?: @"");
+        return;
+    }
+
+    KRFPSMonitor *mainFpsMonitor = [manager mainFPS];
+    KRFPSMonitor *kotlinFpsMonitor = [manager kotlinFPS];
+    KRMemoryMonitor *memMonitor = [manager memoryMonitor];
+    NSDictionary *perfData = [manager performanceData];
+
+    NSLog(@"[KuiklyPerfReport] event=page_exit page=%@ pageExistTimeMs=%.0f",
+          _pageName ?: @"",
+          [manager pageExistTime]);
+
+    if (mainFpsMonitor) {
+        NSLog(@"[KuiklyPerfReport] thread=main avg=%lu min=%lu max=%lu cur=%lu",
+              (unsigned long)mainFpsMonitor.avgFPS,
+              (unsigned long)mainFpsMonitor.minFPS,
+              (unsigned long)mainFpsMonitor.maxFPS,
+              (unsigned long)mainFpsMonitor.curFPS);
+    } else {
+        NSLog(@"[KuiklyPerfReport] thread=main error=monitor_nil");
+    }
+
+    if (kotlinFpsMonitor) {
+        NSLog(@"[KuiklyPerfReport] thread=kotlin avg=%lu min=%lu max=%lu cur=%lu",
+              (unsigned long)kotlinFpsMonitor.avgFPS,
+              (unsigned long)kotlinFpsMonitor.minFPS,
+              (unsigned long)kotlinFpsMonitor.maxFPS,
+              (unsigned long)kotlinFpsMonitor.curFPS);
+    } else {
+        NSLog(@"[KuiklyPerfReport] thread=kotlin error=monitor_nil");
+    }
+
+    if (memMonitor) {
+        NSLog(@"[KuiklyPerfReport] memory avgIncrementMB=%.2f peakIncrementMB=%.2f appAvgMB=%.2f appPeakMB=%.2f",
+              [memMonitor avgIncrementMemory] / 1024.0 / 1024.0,
+              [memMonitor peakIncrementMemory] / 1024.0 / 1024.0,
+              [memMonitor appAvgMemory] / 1024.0 / 1024.0,
+              [memMonitor appPeakMemory] / 1024.0 / 1024.0);
+    }
+
+    NSLog(@"[KuiklyPerfReport] performanceData=%@", perfData ?: @{});
+    NSLog(@"[KuiklyPerfReport] stageStartTimes=%@", manager.stageStartTimes ?: @{});
+    NSLog(@"[KuiklyPerfReport] stageDurations=%@", manager.stageDurations ?: @{});
+}
+
 
 - (void)renderViewDidCreated {
     _beginTime = CFAbsoluteTimeGetCurrent();
@@ -206,7 +244,21 @@ static NSString * const kTurboDisplayTestPageName = @"TurboDisplayAppLoadTestPag
     id<KRPerformanceDataProtocol> performance = _delegator.performanceManager;
     // 获取performance相关信息
     NSDictionary *data = [performance performanceData];
+    NSDictionary *pageLoadTime = data[@"pageLoadTime"];
     NSLog(@"onPageLoadComplete performance data:%@", data);
+    NSLog(@"[KuiklyFirstPaint] event=page_load_complete page=%@ succeed=%d "
+          @"firstPaintCost=%@ renderCost=%@ pageBuildCost=%@ pageLayoutCost=%@ createPageCost=%@ "
+          @"initRenderContextCost=%@ newPageCost=%@ initViewCost=%@",
+          _pageName ?: @"",
+          isSucceed ? 1 : 0,
+          pageLoadTime[@"firstPaintCost"] ?: @(-1),
+          pageLoadTime[@"renderCost"] ?: @(-1),
+          pageLoadTime[@"pageBuildCost"] ?: @(-1),
+          pageLoadTime[@"pageLayoutCost"] ?: @(-1),
+          pageLoadTime[@"createPageCost"] ?: @(-1),
+          pageLoadTime[@"initRenderContextCost"] ?: @(-1),
+          pageLoadTime[@"newPageCost"] ?: @(-1),
+          pageLoadTime[@"initViewCost"] ?: @(-1));
 }
 
 #pragma mark - private
@@ -241,7 +293,12 @@ static NSString * const kTurboDisplayTestPageName = @"TurboDisplayAppLoadTestPag
 
 
 - (void)contentViewDidLoad {
-    NSLog(@"pageCostTime:%.2lf", (CFAbsoluteTimeGetCurrent() - _beginTime) * 1000.0);
+    CFTimeInterval pageCostMs = (CFAbsoluteTimeGetCurrent() - _beginTime) * 1000.0;
+    NSLog(@"pageCostTime:%.2lf", pageCostMs);
+    // firstPaintCost 在 performanceManager contentViewDidLoad 之后才写入，以 page_load_complete 为准。
+    NSLog(@"[KuiklyFirstPaint] event=content_view_did_load page=%@ pageCostTimeMs=%.0f",
+          _pageName ?: @"",
+          pageCostMs);
 }
 
 - (void)dealloc {

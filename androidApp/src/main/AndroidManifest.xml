@@ -21,16 +21,21 @@
         <meta-data
             android:name="VivoMultiWindow"
             android:value="true" />
+        <!-- Native 壳：冷启动先进此页，再点 A/B 进 LazyRowReuseDemo（对齐 iOS RootViewController） -->
         <activity
-            android:name="com.tencent.kuikly.android.demo.KuiklyRenderActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:windowSoftInputMode="stateUnspecified|adjustNothing"
-            android:exported="true">
+            android:name=".FirstScreenLauncherActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="com.tencent.kuikly.android.demo.KuiklyRenderActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:windowSoftInputMode="stateUnspecified|adjustNothing"
+            android:exported="true" />
         <activity android:name=".NativeMixKuiklyViewDemoActivity"/>
         <activity android:name=".NativeAppWaterfallActivity"/>
     </application>

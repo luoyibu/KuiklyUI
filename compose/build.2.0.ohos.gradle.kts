@@ -22,13 +22,12 @@ kotlin {
         publishLibraryVariants("release")
     }
 
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
-
-    js(IR) {
-        browser()
-    }
+    // Local 1.9.3-kuikly1 runtime is ohosArm64-only in MavenLocal; skip other KMP
+    // targets so Gradle does not resolve missing js/ios variants.
+    // iosX64()
+    // iosArm64()
+    // iosSimulatorArm64()
+    // js(IR) { browser() }
 
     targets.all {
         compilations.all {
@@ -55,14 +54,24 @@ kotlin {
         all {
             languageSettings.optIn("kotlinx.cinterop.ExperimentalForeignApi")
         }
-        commonMain.dependencies {
-            implementation(project(":core"))
-            api("com.tencent.kuikly-open.compose.runtime:runtime:1.7.3-kuikly2")
-            api("com.tencent.kuikly-open.compose.runtime:runtime-saveable:1.7.3-kuikly2")
-            api("com.tencent.kuikly-open.compose.annotation-internal:annotation:1.7.3-kuikly2")
-            api("com.tencent.kuikly-open.compose.collection-internal:collection:1.7.3-kuikly2")
-            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0-KBA-001")
-            api("org.jetbrains.kotlinx:atomicfu:0.23.2-KBA-001")
+        val commonMain by getting {
+            dependencies {
+                implementation(project(":core"))
+                api("com.tencent.kuikly-open.compose.runtime:runtime:1.9.3-kuikly1")
+                api("com.tencent.kuikly-open.compose.runtime:runtime-saveable:1.9.3-kuikly1")
+                api("com.tencent.kuikly-open.compose.annotation-internal:annotation:1.9.3-kuikly1")
+                api("com.tencent.kuikly-open.compose.collection-internal:collection:1.9.3-kuikly1")
+                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0-KBA-001")
+                api("org.jetbrains.kotlinx:atomicfu:0.23.2-KBA-001")
+            }
+        }
+
+        // Without ios/other native targets, nativeMain is not created by hierarchy.
+        val nativeMain by creating {
+            dependsOn(commonMain)
+        }
+        val ohosArm64Main by getting {
+            dependsOn(nativeMain)
         }
 
         // Android 特有源集中添加 ProfileInstaller 依赖

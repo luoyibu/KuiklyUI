@@ -35,10 +35,16 @@ import com.tencent.kuikly.core.module.SharedPreferencesModule
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.utils.urlParams
+import com.tencent.kuikly.demo.DemoLazyPrefetchBootstrap
 import com.tencent.kuikly.demo.pages.base.Utils
 
 @Page("crouter", supportInLocal = true)
 class ComposeRoutePager : ComposeContainer() {
+
+    override fun created() {
+        DemoLazyPrefetchBootstrap.applyGlobalPrefetchForDebug()
+        super.created()
+    }
 
     override fun willInit() {
         super.willInit()

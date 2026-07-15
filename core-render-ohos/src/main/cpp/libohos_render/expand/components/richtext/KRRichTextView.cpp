@@ -104,6 +104,9 @@ void KRRichTextView::DidInit() {
 }
 
 void KRRichTextView::SetShadow(const std::shared_ptr<IKRRenderShadowExport> &shadow) {
+    // The draw-width cache belongs to the typography currently carried by the shadow.
+    // Compose logical reuse can replace it without removing the native view from its parent.
+    last_draw_frame_width_ = -1.0;
     shadow_ = shadow;
 
     auto textShadow = std::dynamic_pointer_cast<KRRichTextShadow>(shadow);
@@ -209,6 +212,7 @@ void KRRichTextView::OnForegroundDraw(ArkUI_NodeCustomEvent *event) {
     if (fabs(textTypoSize.width - frameWidth) > 1 || textAlign != TEXT_ALIGN_LEFT) {
         needReLayout = true;
     }
+
     if (needReLayout) {
         auto dpi = KRConfig::GetDpi();
         OH_Drawing_TypographyLayout(textTypo, frameWidth * dpi);

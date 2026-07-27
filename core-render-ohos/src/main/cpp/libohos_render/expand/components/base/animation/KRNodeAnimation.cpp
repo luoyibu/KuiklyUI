@@ -41,7 +41,7 @@ void KRNodeAnimation::commitAnimationOperations() {
             return;
         }
         self->animationRunningCount--;
-        if (self->onAnimationEndCallback) {
+        if (self->animationRunningCount == 0 && self->onAnimationEndCallback) {
             self->onAnimationEndCallback(selfRef, finished, propKey, self->animationKey);
         }
     };

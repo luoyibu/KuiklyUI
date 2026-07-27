@@ -1372,6 +1372,7 @@ class Transition<S> internal constructor(
 
         internal var isFinished: Boolean by mutableStateOf(true)
         internal var resetSnapValue by mutableFloatStateOf(NoReset)
+        private val nativeAnimationState = NativeTransitionAnimationState()
 
         /**
          * When the target state has changed, but the target value remains the same,
@@ -1392,6 +1393,7 @@ class Transition<S> internal constructor(
         private var isSeeking = false
 
         internal fun onPlayTimeChanged(playTimeNanos: Long, scaleToEnd: Boolean) {
+            if (nativeAnimationState.isActive) return
             val playTime = if (scaleToEnd) animation.durationNanos else playTimeNanos
             value = animation.getValueFromNanos(playTime)
             velocityVector = animation.getVelocityVectorFromNanos(playTime)
@@ -1581,6 +1583,42 @@ class Transition<S> internal constructor(
             this.targetValue = targetValue
             this.animationSpec = animationSpec
             val initialValue = if (resetSnapValue == ResetAnimationSnap) targetValue else value
+
+            val zeroVelocity = velocityVector.newInstance()
+            val nativeAccepted = nativeAnimationState.tryStart(
+                transitionKey = this@Transition,
+                label = label,
+                animationSpec = animationSpec,
+                initialValue = initialValue,
+                targetValue = targetValue,
+                initialVelocity = typeConverter.convertFromVector(zeroVelocity),
+                converter = typeConverter,
+                isSeeking = isSeeking,
+                prepare = {
+                    // Keep a regular animation for duration/tooling metadata. Sampling is paused
+                    // while Native Render owns the presentation timeline.
+                    updateAnimation(initialValue, isInterrupted = !isFinished)
+                },
+                commitTarget = {
+                    value = targetValue
+                    isFinished = false
+                },
+                finish = { finished ->
+                    if (finished) {
+                        value = targetValue
+                        isFinished = true
+                    } else {
+                        value = initialValue
+                        updateAnimation(initialValue, isInterrupted = false)
+                        isFinished = false
+                    }
+                }
+            )
+            if (nativeAccepted) {
+                useOnlyInitialValue = false
+                resetSnapValue = NoReset
+                return
+            }
             updateAnimation(initialValue, isInterrupted = !isFinished)
             isFinished = resetSnapValue == ResetAnimationSnap
             // This is needed because the target change could happen during a transition

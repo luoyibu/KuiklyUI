@@ -20,6 +20,7 @@
 #import "KRView.h"
 #import "KuiklyRenderBridge.h"
 #import "KuiklyRenderViewExportProtocol.h"
+#import "CSSNativeAnimationV2.h"
 
 #define LAZY_ANIMATION_KEY @"lazyAnimationKey"
 #define ANIMATION_KEY @"animation"
@@ -53,7 +54,10 @@ static const NSInteger KRDefaultKeyboardAnimationCurve = 7;
 
 - (instancetype)initWithCSSAnimation:(NSString *)cssAnimation;
 
-- (void)animationWithBlock:(void (^)(void))block completion:(void (^)(BOOL finished))completion;
+- (void)animationWithView:(UIView *)view
+              propertyKey:(NSString *)propertyKey
+                    block:(void (^)(void))block
+               completion:(void (^)(BOOL finished))completion;
 
 - (void)addKeyframeWithRelativeStartTime:(double)frameStartTime relativeDuration:(double)frameDuration animations:(void (^)(void))animations API_AVAILABLE(ios(7.0));
 
@@ -91,7 +95,6 @@ static const NSInteger KRDefaultKeyboardAnimationCurve = 7;
 @property (nonatomic, strong) UILongPressGestureRecognizer *css_longPressGR;
 @property (nonatomic, strong) UIPanGestureRecognizer *css_panGR;
 @property (nonatomic, strong, readonly) NSMutableSet<NSString *> *css_didSetProps;
-
 @end
 
 @implementation UIView (CSS)
@@ -112,7 +115,7 @@ static const NSInteger KRDefaultKeyboardAnimationCurve = 7;
             self.kr_reuseDisable = YES; // animation node should not be reuse
             NSString *animationKey = self.css_animationImp.animationKey;
             __weak typeof(&*self) weakSelf = self;
-            [self.css_animationImp animationWithBlock:^{
+            [self.css_animationImp animationWithView:self propertyKey:key block:^{
                 func(self, selector, value);
             } completion:^(BOOL finished) {
                 if ([key isEqualToString:ANIMATION_KEY]) {
@@ -1837,6 +1840,11 @@ typedef NS_OPTIONS(NSUInteger, CSSAnimationType) {
     NSTimeInterval _delay;
     BOOL _repeatForever;
     UIViewAnimationCurve _viewAnimationCurve;
+    NSString *_nativeV2Kind;
+    NSArray<NSNumber *> *_nativeV2Values;
+    NSInteger _runningPropertyCount;
+    BOOL _allPropertiesFinished;
+    void (^_aggregateCompletion)(BOOL finished);
 }
 
 
@@ -1864,19 +1872,41 @@ typedef NS_OPTIONS(NSUInteger, CSSAnimationType) {
             if (splits.count >= 8 && [splits[7] isKindOfClass:[NSString class]]) {
                 _animationKey = splits[7];
             }
+            NSString *nativeV2Kind = nil;
+            NSArray<NSNumber *> *nativeV2Values = nil;
+            if (KRParseNativeAnimationV2(splits, &nativeV2Kind, &nativeV2Values)) {
+                _nativeV2Kind = nativeV2Kind;
+                _nativeV2Values = nativeV2Values;
+            }
         }
     }
     return self;
 }
 // 通用属性动画接口
-- (void)animationWithBlock:(void (^)(void))block completion:(void (^)(BOOL finished))completion {
+- (void)animationWithView:(UIView *)view
+              propertyKey:(NSString *)propertyKey
+                    block:(void (^)(void))block
+               completion:(void (^)(BOOL finished))completion {
+    if (_runningPropertyCount == 0) {
+        _allPropertiesFinished = YES;
+    }
+    _runningPropertyCount += 1;
+    _aggregateCompletion = completion;
     __block BOOL isKeyFrameAnimation = NO;
-    [self performAnimateWithType:_animationType animations:^{
+    void (^propertyCompletion)(BOOL) = ^(BOOL finished) {
+        self->_allPropertiesFinished = self->_allPropertiesFinished && finished;
+        self->_runningPropertyCount -= 1;
+        if (self->_runningPropertyCount == 0 && self->_aggregateCompletion) {
+            self->_aggregateCompletion(self->_allPropertiesFinished);
+            self->_aggregateCompletion = nil;
+        }
+    };
+    [self performAnimateWithType:_animationType view:view propertyKey:propertyKey animations:^{
         block();
-        isKeyFrameAnimation = [self performKeyFrameAnimationsWithCompletion:completion]; // 属性动画分解出来的关键帧动画
+        isKeyFrameAnimation = [self performKeyFrameAnimationsWithCompletion:propertyCompletion]; // 属性动画分解出来的关键帧动画
     } completion:^(BOOL finished) {
-        if (completion && !isKeyFrameAnimation) {
-            completion(finished);
+        if (!isKeyFrameAnimation) {
+            propertyCompletion(finished);
         }
     }];
 }
@@ -1890,7 +1920,25 @@ typedef NS_OPTIONS(NSUInteger, CSSAnimationType) {
     }];
 }
 
-- (void)performAnimateWithType:(CSSAnimationType)type animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion {
+- (void)performAnimateWithType:(CSSAnimationType)type
+                          view:(UIView *)view
+                   propertyKey:(NSString *)propertyKey
+                    animations:(void (^)(void))animations
+                    completion:(void (^)(BOOL finished))completion {
+    if (_nativeV2Kind.length) {
+        if (KRPerformNativeAnimationV2(
+                view,
+                propertyKey,
+                _nativeV2Kind,
+                _nativeV2Values,
+                _duration,
+                _delay,
+                animations,
+                completion
+            )) {
+            return;
+        }
+    }
     if (type == CSSAnimationTypeSpring) {
         [UIView animateWithDuration:_duration delay:_delay usingSpringWithDamping:_damping initialSpringVelocity:_velocity
                             options:_viewAnimationOption | UIViewAnimationOptionAllowUserInteraction

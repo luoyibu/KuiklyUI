@@ -18,6 +18,7 @@
 
 #include "libohos_render/expand/components/base/KRBasePropsHandler.h"
 #include "libohos_render/expand/components/base/animation/IKRNodeAnimation.h"
+#include "libohos_render/expand/components/base/animation/KRNodeNativeAnimationV2.h"
 #include "libohos_render/expand/components/base/animation/KRNodePlainAnimation.h"
 #include "libohos_render/expand/components/base/animation/KRNodeSpringAnimation.h"
 #include "libohos_render/utils/KRConvertUtil.h"
@@ -58,6 +59,7 @@ class KRNodeAnimation : public IKRNodeAnimation {
 
     // 动画key
     std::string animationKey = "";
+    KRNodeNativeAnimationV2 nativeV2;
 
     std::unordered_map<std::string, KRNodeAnimationHandlerCreator> supportAnimationHandlerCreator;
     std::unordered_map<std::string, std::shared_ptr<KRNodeAnimationHandler>> animationOperationMap;
@@ -241,6 +243,7 @@ class KRNodeAnimation : public IKRNodeAnimation {
         if (animationSpilt.size() > ANIMATION_KEY_INDEX) {
             animationKey = animationSpilt[ANIMATION_KEY_INDEX];
         }
+        nativeV2 = KRNodeNativeAnimationV2::Parse(animationSpilt);
     }
 
     /**
@@ -294,11 +297,20 @@ class KRNodeAnimation : public IKRNodeAnimation {
         if (springHandler != nullptr) {
             springHandler->damping = damping;
             springHandler->velocity = velocity;
+            if (nativeV2.kind == "spring" && nativeV2.values.size() >= 3) {
+                springHandler->stiffness = nativeV2.values[0];
+                springHandler->damping = nativeV2.values[1];
+                springHandler->velocity = nativeV2.values[2];
+                springHandler->useNativeV2Spring = true;
+            }
         } else {
             std::shared_ptr<KRNodePlainAnimationHandler> plainHandler =
                 std::dynamic_pointer_cast<KRNodePlainAnimationHandler>(handler_);
             if (plainHandler != nullptr) {
                 plainHandler->timingFuncType = timingFuncType;
+                if (nativeV2.kind == "cubic" && nativeV2.values.size() == 4) {
+                    plainHandler->cubicBezier = nativeV2.values;
+                }
             }
         }
     }

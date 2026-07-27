@@ -1031,7 +1031,10 @@ private fun Transition<EnterExitState>.createGraphicsLayerBlock(
             }
         // Animate transform origin if there's any change. If scale is only defined for enter or
         // exit, use the same transform origin for both.
-        val transformOrigin = transformOriginAnimation?.animate({ spring() }) {
+        val transformOrigin = transformOriginAnimation?.animate(
+            // Transform origin belongs to the same all-or-nothing transaction as scale.
+            transitionSpec = { nativeTransformOriginSpec(enter, exit) }
+        ) {
             when (it) {
                 EnterExitState.Visible -> transformOriginWhenVisible
                 EnterExitState.PreEnter ->
@@ -1184,11 +1187,27 @@ private class EnterExitTransitionModifierNode(
             val slideOffset = slideAnimation?.animate(slideSpec) {
                 slideTargetValueByState(it, target)
             }?.value ?: IntOffset.Zero
+            val nativeSlide = slideAnimation != null &&
+                with(transition.segment) {
+                    slideSpec().usesNativeGraphicsTranslation()
+                }
             val offset = (currentAlignment?.align(target, currentSize, LayoutDirection.Ltr)
-                ?: IntOffset.Zero) + slideOffset
+                ?: IntOffset.Zero) + if (nativeSlide) IntOffset.Zero else slideOffset
+            val placementLayerBlock: GraphicsLayerScope.() -> Unit = {
+                layerBlock()
+                if (nativeSlide) {
+                    // Native slide is a visual translation. It deliberately does not participate
+                    // in measurement or sibling placement.
+                    translationX += slideOffset.x
+                    translationY += slideOffset.y
+                }
+            }
             return layout(currentSize.width, currentSize.height) {
                 placeable.placeWithLayer(
-                    offset.x + offsetDelta.x, offset.y + offsetDelta.y, 0f, layerBlock
+                    offset.x + offsetDelta.x,
+                    offset.y + offsetDelta.y,
+                    0f,
+                    placementLayerBlock
                 )
             }
         } else {

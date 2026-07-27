@@ -55,6 +55,8 @@ import com.tencent.kuikly.compose.profiler.RecompositionProfiler
 import com.tencent.kuikly.compose.profiler.RecompositionTracker
 import com.tencent.kuikly.compose.profiler.kuiklySetObserver
 import com.tencent.kuikly.compose.ui.KuiklyCanvas
+import com.tencent.kuikly.compose.animation.core.commitPendingNativeAnimationProperties
+import com.tencent.kuikly.compose.animation.core.destroyCurrentNativeAnimationCoordinator
 import com.tencent.kuikly.core.exception.throwRuntimeError
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.CoroutineContext
@@ -164,6 +166,7 @@ internal abstract class BaseComposeScene(
 
         composition?.dispose()
         recomposer.cancel()
+        destroyCurrentNativeAnimationCoordinator()
     }
 
     override fun hasInvalidations(): Boolean = hasPendingDraws || recomposer.hasPendingWork
@@ -216,6 +219,7 @@ internal abstract class BaseComposeScene(
             inputHandler.updatePointerPosition() // Synthetic move event
             snapshotInvalidationTracker.onDraw()
             draw(KuiklyCanvas()) // Draw
+            commitPendingNativeAnimationProperties()
 
             val previousDrawNanoTime = lastFrameDrawNanoTime
             lastFrameDrawNanoTime = nanoTime

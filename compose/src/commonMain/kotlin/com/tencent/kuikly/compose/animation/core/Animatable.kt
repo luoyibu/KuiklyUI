@@ -149,6 +149,7 @@ class Animatable<T, V : AnimationVector>(
 
     private var lowerBoundVector: V = negativeInfinityBounds
     private var upperBoundVector: V = positiveInfinityBounds
+    private var hasExplicitBounds = false
 
     /**
      * Updates either [lowerBound] or [upperBound], or both. This will update
@@ -188,6 +189,7 @@ class Animatable<T, V : AnimationVector>(
 
         this.upperBound = upperBound
         this.lowerBound = lowerBound
+        hasExplicitBounds = lowerBound != null || upperBound != null
         if (!isRunning) {
             val clampedValue = clampToBounds(value)
             if (clampedValue != value) {
@@ -235,6 +237,20 @@ class Animatable<T, V : AnimationVector>(
         initialVelocity: T = velocity,
         block: (Animatable<T, V>.() -> Unit)? = null
     ): AnimationResult<T, V> {
+        animationSpec.nativeAnimatableCandidateOrNull(
+            initialValue = value,
+            targetValue = targetValue,
+            initialVelocity = initialVelocity,
+            converter = typeConverter,
+            hasFrameBlock = block != null,
+            hasExplicitBounds = hasExplicitBounds
+        )?.let { candidate ->
+            runNativeAnimation(
+                targetValue,
+                candidate.animation,
+                candidate.coordinator
+            )?.let { return it }
+        }
         val anim = TargetBasedAnimation(
             animationSpec = animationSpec,
             initialValue = value,
@@ -243,6 +259,39 @@ class Animatable<T, V : AnimationVector>(
             initialVelocity = initialVelocity
         )
         return runAnimation(anim, initialVelocity, block)
+    }
+
+    private suspend fun runNativeAnimation(
+        nativeTargetValue: T,
+        nativeAnimation: com.tencent.kuikly.core.base.Animation,
+        coordinator: NativeAnimationCoordinator
+    ): AnimationResult<T, V>? {
+        val initialValue = value
+        return mutatorMutex.mutate {
+            try {
+                targetValue = nativeTargetValue
+                isRunning = true
+                val committed = coordinator.animate(nativeAnimation) {
+                    // Native mode exposes the logical target immediately. The native presentation
+                    // value is intentionally not reflected back into this State.
+                    internalState.value = nativeTargetValue
+                }
+                if (!committed) {
+                    internalState.value = initialValue
+                    targetValue = initialValue
+                    endAnimation()
+                    return@mutate null
+                }
+                val endState = internalState.copy()
+                endAnimation()
+                AnimationResult(endState, Finished)
+            } catch (e: CancellationException) {
+                // Keep the logical target on cancellation. Native Render owns the presentation
+                // continuation/cancellation and a replacement animation starts from that state.
+                endAnimation()
+                throw e
+            }
+        }
     }
 
     /**

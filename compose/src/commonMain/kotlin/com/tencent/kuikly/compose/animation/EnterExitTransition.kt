@@ -919,7 +919,7 @@ internal fun Transition<EnterExitState>.trackActiveEnter(enter: EnterTransition)
             // When seeking, the timing is different and there's no need to handle interruptions.
             activeEnter = enter
         } else {
-            activeEnter = EnterTransition.None
+            activeEnter = enter.retainForNativeInterruptionOrNone()
         }
     } else if (targetState == EnterExitState.Visible) {
         activeEnter += enter
@@ -993,7 +993,11 @@ private fun Transition<EnterExitState>.createGraphicsLayerBlock(
                     EnterExitState.Visible isTransitioningTo EnterExitState.PostExit ->
                         exit.data.fade?.animationSpec ?: DefaultAlphaAndScaleSpring
 
-                    else -> DefaultAlphaAndScaleSpring
+                    else -> nativeInterruptionSpec(
+                        enterSpec = enter.data.fade?.animationSpec,
+                        exitSpec = exit.data.fade?.animationSpec,
+                        interruptionSpec = DefaultAlphaAndScaleSpring
+                    )
                 }
             },
         ) {
@@ -1013,7 +1017,11 @@ private fun Transition<EnterExitState>.createGraphicsLayerBlock(
                     EnterExitState.Visible isTransitioningTo EnterExitState.PostExit ->
                         exit.data.scale?.animationSpec ?: DefaultAlphaAndScaleSpring
 
-                    else -> DefaultAlphaAndScaleSpring
+                    else -> nativeInterruptionSpec(
+                        enterSpec = enter.data.scale?.animationSpec,
+                        exitSpec = exit.data.scale?.animationSpec,
+                        interruptionSpec = DefaultAlphaAndScaleSpring
+                    )
                 }
             }
         ) {
@@ -1230,7 +1238,11 @@ private class EnterExitTransitionModifierNode(
                 exit.data.slide?.animationSpec ?: DefaultOffsetAnimationSpec
             }
 
-            else -> DefaultOffsetAnimationSpec
+            else -> nativeInterruptionSpec(
+                enterSpec = enter.data.slide?.animationSpec,
+                exitSpec = exit.data.slide?.animationSpec,
+                interruptionSpec = DefaultOffsetAnimationSpec
+            )
         }
     }
 

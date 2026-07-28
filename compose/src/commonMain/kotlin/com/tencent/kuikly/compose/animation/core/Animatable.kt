@@ -267,25 +267,41 @@ class Animatable<T, V : AnimationVector>(
         coordinator: NativeAnimationCoordinator
     ): AnimationResult<T, V>? {
         val initialValue = value
+        NativeAnimationTrace.log {
+            "animatable run from=$initialValue to=$nativeTargetValue descriptor=$nativeAnimation"
+        }
         return mutatorMutex.mutate {
             try {
                 targetValue = nativeTargetValue
                 isRunning = true
-                val committed = coordinator.animate(nativeAnimation) {
+                val committed = coordinator.animate(
+                    nativeAnimation,
+                    initialValue,
+                    nativeTargetValue
+                ) {
                     // Native mode exposes the logical target immediately. The native presentation
                     // value is intentionally not reflected back into this State.
                     internalState.value = nativeTargetValue
                 }
                 if (!committed) {
+                    NativeAnimationTrace.log {
+                        "animatable fallback from=$initialValue to=$nativeTargetValue"
+                    }
                     internalState.value = initialValue
                     targetValue = initialValue
                     endAnimation()
                     return@mutate null
                 }
                 val endState = internalState.copy()
+                NativeAnimationTrace.log {
+                    "animatable completed target=$nativeTargetValue"
+                }
                 endAnimation()
                 AnimationResult(endState, Finished)
             } catch (e: CancellationException) {
+                NativeAnimationTrace.log {
+                    "animatable cancelled target=$nativeTargetValue"
+                }
                 // Keep the logical target on cancellation. Native Render owns the presentation
                 // continuation/cancellation and a replacement animation starts from that state.
                 endAnimation()

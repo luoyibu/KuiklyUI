@@ -26,13 +26,27 @@ internal fun <T, V : AnimationVector> AnimationSpec<T>.nativeAnimatableCandidate
     hasFrameBlock: Boolean,
     hasExplicitBounds: Boolean
 ): NativeAnimatableCandidate? {
-    if (hasFrameBlock || hasExplicitBounds) return null
+    if (hasFrameBlock || hasExplicitBounds) {
+        NativeAnimationTrace.log {
+            "animatable candidate rejected frameBlock=$hasFrameBlock bounds=$hasExplicitBounds"
+        }
+        return null
+    }
     val animation = toNativeAnimationOrNull(
         initialValue = initialValue,
         targetValue = targetValue,
         initialVelocity = initialVelocity,
         converter = converter
-    ) ?: return null
-    val coordinator = NativeAnimationCoordinator.currentOrNull() ?: return null
+    ) ?: run {
+        NativeAnimationTrace.log { "animatable candidate rejected reason=descriptor" }
+        return null
+    }
+    val coordinator = NativeAnimationCoordinator.currentOrNull() ?: run {
+        NativeAnimationTrace.log { "animatable candidate rejected reason=no-coordinator" }
+        return null
+    }
+    NativeAnimationTrace.log {
+        "animatable candidate accepted from=$initialValue to=$targetValue"
+    }
     return NativeAnimatableCandidate(animation, coordinator)
 }

@@ -29,8 +29,15 @@ import com.tencent.kuikly.core.manager.PagerManager
 import com.tencent.kuikly.core.pager.IPager
 import com.tencent.kuikly.core.timer.clearTimeout
 import com.tencent.kuikly.core.timer.setTimeout
+import com.tencent.kuikly.compose.ui.geometry.Offset
+import com.tencent.kuikly.compose.ui.graphics.Color
+import com.tencent.kuikly.compose.ui.graphics.ReusableGraphicsLayerScope
+import com.tencent.kuikly.compose.ui.graphics.TransformOrigin
+import com.tencent.kuikly.compose.ui.graphics.toArgb
+import com.tencent.kuikly.compose.ui.unit.IntOffset
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.math.abs
 import kotlin.coroutines.resume
 
 /**
@@ -41,6 +48,12 @@ import kotlin.coroutines.resume
 internal class NativeAnimationCoordinator private constructor(
     private val pager: IPager
 ) : NativeAnimationBridge {
+    internal enum class TransitionCompletion {
+        Finished,
+        Fallback,
+        Superseded
+    }
+
     private val pagerScope = pager as PagerScope
     private data class Operation(
         val view: AbstractBaseView<*, *>,
@@ -49,6 +62,8 @@ internal class NativeAnimationCoordinator private constructor(
         val previousValue: Any?,
         val targetValue: Any
     )
+
+    private data class Endpoint(val initialValue: Any?, val targetValue: Any?)
 
     private class Group(
         val id: Long,
@@ -59,8 +74,14 @@ internal class NativeAnimationCoordinator private constructor(
         val operations: MutableList<Operation> = mutableListOf(),
         val propertyAnimations: MutableMap<String, Animation> = mutableMapOf(),
         val propertyAnimationSignatures: MutableMap<String, String> = mutableMapOf(),
-        val transitionCompletions: MutableList<(Boolean) -> Unit> = mutableListOf(),
+        val transitionCompletions: MutableList<(TransitionCompletion) -> Unit> = mutableListOf(),
+        val targetStateCommits: MutableList<() -> Unit> = mutableListOf(),
+        val genericEndpoints: MutableList<Endpoint> = mutableListOf(),
+        val propertyEndpoints: MutableMap<String, MutableList<Endpoint>> = mutableMapOf(),
+        val ownedProperties: MutableSet<Pair<Int, String>> = mutableSetOf(),
         var unsupported: Boolean = false,
+        var hasUnhintedParticipant: Boolean = false,
+        var preparingInitialState: Boolean = transitionKey != null,
         var committed: Boolean = false,
         var timeoutRef: String? = null,
         val pendingCallbacksByView: MutableMap<Int, Int> = mutableMapOf()
@@ -72,7 +93,12 @@ internal class NativeAnimationCoordinator private constructor(
     private val rejectedTransitionKeys = mutableSetOf<Any>()
     private var destroyed = false
 
-    suspend fun animate(animation: Animation, targetStateCommit: () -> Unit): Boolean =
+    suspend fun animate(
+        animation: Animation,
+        initialValue: Any?,
+        targetValue: Any?,
+        targetStateCommit: () -> Unit
+    ): Boolean =
         suspendCancellableCoroutine { continuation ->
             if (destroyed) {
                 continuation.resume(false)
@@ -86,12 +112,22 @@ internal class NativeAnimationCoordinator private constructor(
                 continuation
             )
             animation.key = "composeNativeAnimation_${group.id}"
+            group.genericEndpoints += Endpoint(initialValue, targetValue)
+            NativeAnimationTrace.log {
+                "create group=${group.id} kind=animatable descriptor=${group.descriptorSignature}"
+            }
             activeGroup = group
             continuation.invokeOnCancellation {
                 if (activeGroup === group) {
+                    NativeAnimationTrace.log {
+                        "cancel pending group=${group.id} operations=${group.operations.size}"
+                    }
                     rollback(group)
                     activeGroup = null
                 } else if (runningGroups[group.id] === group) {
+                    NativeAnimationTrace.log {
+                        "cancel running group=${group.id} action=snap-and-finish-false"
+                    }
                     snapCommittedGroupToLogicalTarget(group)
                     finish(group, false)
                 }
@@ -103,8 +139,10 @@ internal class NativeAnimationCoordinator private constructor(
         transitionKey: Any,
         propertyHint: String?,
         animation: Animation,
+        initialValue: Any?,
+        targetValue: Any?,
         targetStateCommit: () -> Unit,
-        completion: (Boolean) -> Unit
+        completion: (TransitionCompletion) -> Unit
     ): Boolean {
         if (destroyed || transitionKey in rejectedTransitionKeys) return false
         val signature = animation.toString()
@@ -119,11 +157,30 @@ internal class NativeAnimationCoordinator private constructor(
             ).also {
                 animation.key = "composeNativeAnimation_${it.id}"
                 activeGroup = it
+                NativeAnimationTrace.log {
+                    "create group=${it.id} kind=transition key=${transitionKey.hashCode()} " +
+                        "property=$propertyHint descriptor=$signature"
+                }
+                supersedeRunningTransitionGroups(transitionKey, it.id)
             }
-            pending.continuation != null -> return false
-            pending.transitionKey !== transitionKey -> return false
+            pending.continuation != null -> {
+                NativeAnimationTrace.log {
+                    "reject transition key=${transitionKey.hashCode()} reason=animatable-pending"
+                }
+                return false
+            }
+            pending.transitionKey !== transitionKey -> {
+                NativeAnimationTrace.log {
+                    "reject transition key=${transitionKey.hashCode()} reason=different-key " +
+                        "activeGroup=${pending.id}"
+                }
+                return false
+            }
             propertyHint == null && pending.descriptorSignature != signature -> {
                 pending.unsupported = true
+                NativeAnimationTrace.log {
+                    "reject group=${pending.id} reason=mixed-descriptor-without-property"
+                }
                 return false
             }
             else -> pending
@@ -132,20 +189,58 @@ internal class NativeAnimationCoordinator private constructor(
             val existingSignature = group.propertyAnimationSignatures[propertyHint]
             if (existingSignature != null && existingSignature != signature) {
                 group.unsupported = true
+                NativeAnimationTrace.log {
+                    "reject group=${group.id} property=$propertyHint reason=mixed-descriptor"
+                }
                 return false
             }
             animation.key = group.animation.key
             group.propertyAnimations[propertyHint] = animation
             group.propertyAnimationSignatures[propertyHint] = signature
+            group.propertyEndpoints.getOrPut(propertyHint) { mutableListOf() }
+                .add(Endpoint(initialValue, targetValue))
+        } else {
+            group.hasUnhintedParticipant = true
+            group.genericEndpoints += Endpoint(initialValue, targetValue)
         }
         group.transitionCompletions += completion
-        targetStateCommit()
+        group.targetStateCommits += targetStateCommit
+        NativeAnimationTrace.log {
+            "join group=${group.id} property=$propertyHint " +
+                "participants=${group.transitionCompletions.size}"
+        }
         return true
+    }
+
+    /**
+     * A transition needs one frame to materialize its initial state before its target properties
+     * can be staged. Do not leave the previous logical group alive during that frame: its native
+     * animator may finish and report success, which can make AnimatedVisibility dispose an exit
+     * node before the reversing group gets a chance to commit.
+     *
+     * Finishing the coordinator record does not cancel the platform animator. It keeps presenting
+     * until the new property batch is committed, where Native Render replaces it from the current
+     * presentation value.
+     */
+    private fun supersedeRunningTransitionGroups(transitionKey: Any, replacementGroupId: Long) {
+        runningGroups.values
+            .filter { it.transitionKey === transitionKey }
+            .toList()
+            .forEach {
+                NativeAnimationTrace.log {
+                    "supersede running group=${it.id} by pending group=$replacementGroupId " +
+                        "key=${transitionKey.hashCode()}"
+                }
+                finish(it, false)
+            }
     }
 
     fun rejectTransition(transitionKey: Any) {
         rejectedTransitionKeys += transitionKey
         activeGroup?.takeIf { it.transitionKey === transitionKey }?.unsupported = true
+        NativeAnimationTrace.log {
+            "reject transition key=${transitionKey.hashCode()} activeGroup=${activeGroup?.id}"
+        }
     }
 
     override fun stageProperty(
@@ -157,20 +252,128 @@ internal class NativeAnimationCoordinator private constructor(
     ): Boolean {
         val group = activeGroup ?: return false
         if (group.committed || propertyKey == Attr.StyleConst.ANIMATION) return false
-        group.operations += Operation(view, attr, propertyKey, previousValue, targetValue)
+        if (group.preparingInitialState) {
+            NativeAnimationTrace.log {
+                "materialize initial group=${group.id} view=${view.nativeRef} property=$propertyKey"
+            }
+            return false
+        }
+        if (
+            propertyKey in SUPPORTED_PROPERTIES &&
+            !group.owns(view, propertyKey) &&
+            !group.matchesPropertyEndpoint(propertyKey, previousValue, targetValue)
+        ) {
+            NativeAnimationTrace.log {
+                "pass foreign group=${group.id} view=${view.nativeRef} property=$propertyKey"
+            }
+            return false
+        }
+        if (propertyKey in SUPPORTED_PROPERTIES) {
+            group.ownedProperties += view.nativeRef to propertyKey
+        }
         if (propertyKey !in SUPPORTED_PROPERTIES) {
+            if (!group.hasUnhintedParticipant || previousValue == null) {
+                NativeAnimationTrace.log {
+                    "pass unrelated group=${group.id} view=${view.nativeRef} " +
+                        "property=$propertyKey"
+                }
+                return false
+            }
             group.unsupported = true
+            NativeAnimationTrace.log {
+                "mark unsupported group=${group.id} property=$propertyKey"
+            }
+        } else if (
+            group.transitionKey != null &&
+            group.propertyAnimations.isNotEmpty() &&
+            propertyKey !in group.propertyAnimations
+        ) {
+            NativeAnimationTrace.log {
+                "pass static property group=${group.id} view=${view.nativeRef} " +
+                    "property=$propertyKey"
+            }
+            return false
+        }
+        group.operations += Operation(view, attr, propertyKey, previousValue, targetValue)
+        NativeAnimationTrace.log {
+            "stage group=${group.id} view=${view.nativeRef} property=$propertyKey " +
+                "from=$previousValue to=$targetValue"
         }
         return true
+    }
+
+    /**
+     * Associates target-state graphics-layer writes with the animation state that produced them.
+     * This prevents a page-level transaction from capturing an unrelated Compose animation that
+     * happens to update the same property during the collection frame.
+     */
+    fun registerGraphicsLayerTarget(
+        view: AbstractBaseView<*, *>?,
+        previousAlpha: Float,
+        previousScaleX: Float,
+        previousScaleY: Float,
+        previousTranslationX: Float,
+        previousTranslationY: Float,
+        previousRotationX: Float,
+        previousRotationY: Float,
+        previousRotationZ: Float,
+        previousTransformOrigin: TransformOrigin,
+        target: ReusableGraphicsLayerScope
+    ) {
+        val group = activeGroup ?: return
+        if (view == null || group.preparingInitialState || group.committed) return
+        if (group.matchesFloatEndpoint(
+                Attr.StyleConst.OPACITY,
+                previousAlpha,
+                target.alpha
+            )
+        ) {
+            group.ownedProperties += view.nativeRef to Attr.StyleConst.OPACITY
+        }
+        val scalarTransformChanges = listOf(
+            previousScaleX to target.scaleX,
+            previousScaleY to target.scaleY,
+            previousTranslationX to target.translationX,
+            previousTranslationY to target.translationY,
+            previousRotationX to target.rotationX,
+            previousRotationY to target.rotationY,
+            previousRotationZ to target.rotationZ,
+            previousTransformOrigin.pivotFractionX to target.transformOrigin.pivotFractionX,
+            previousTransformOrigin.pivotFractionY to target.transformOrigin.pivotFractionY
+        )
+        if (
+            scalarTransformChanges.any { (initial, targetValue) ->
+                group.matchesFloatEndpoint(Attr.StyleConst.TRANSFORM, initial, targetValue)
+            } ||
+            group.matchesStructuredTransformEndpoint(
+                previousTranslationX,
+                previousTranslationY,
+                target.translationX,
+                target.translationY,
+                previousTransformOrigin,
+                target.transformOrigin
+            )
+        ) {
+            group.ownedProperties += view.nativeRef to Attr.StyleConst.TRANSFORM
+        }
     }
 
     override fun stageFrame(view: AbstractBaseView<*, *>): Boolean {
         val group = activeGroup ?: return false
         if (group.committed) return false
+        if (group.preparingInitialState) return false
         // A frame write is expected when an entering/crossfading node is first laid out. Do not
         // consume it: only a transaction with no supported visual property is a layout animation.
-        if (group.propertyAnimations.isNotEmpty()) return false
+        if (group.propertyAnimations.isNotEmpty()) {
+            NativeAnimationTrace.log {
+                "pass frame group=${group.id} view=${view.nativeRef} reason=visual-transition"
+            }
+            return false
+        }
         group.unsupported = true
+        NativeAnimationTrace.log {
+            "consume frame group=${group.id} view=${view.nativeRef} reason=frame-only"
+        }
         return true
     }
 
@@ -181,18 +384,45 @@ internal class NativeAnimationCoordinator private constructor(
         }
         rejectedTransitionKeys.clear()
         if (group.committed) return
+        if (group.preparingInitialState) {
+            if (group.unsupported) {
+                NativeAnimationTrace.log {
+                    "fallback initial group=${group.id} reason=unsupported"
+                }
+                activeGroup = null
+                group.transitionCompletions.forEach { it(TransitionCompletion.Fallback) }
+                return
+            }
+            group.preparingInitialState = false
+            NativeAnimationTrace.log {
+                "initial materialized group=${group.id}; schedule target pass " +
+                    "participants=${group.targetStateCommits.size}"
+            }
+            group.targetStateCommits.forEach { it() }
+            group.targetStateCommits.clear()
+            return
+        }
         if (
             group.unsupported ||
             group.operations.isEmpty()
         ) {
+            NativeAnimationTrace.log {
+                "fallback group=${group.id} unsupported=${group.unsupported} " +
+                    "operations=${group.operations.size}"
+            }
             rollback(group)
             activeGroup = null
             if (group.continuation?.isActive == true) group.continuation.resume(false)
-            group.transitionCompletions.forEach { it(false) }
+            group.transitionCompletions.forEach { it(TransitionCompletion.Fallback) }
             return
         }
 
         group.committed = true
+        NativeAnimationTrace.log {
+            "commit group=${group.id} views=${group.operations.map { it.view.nativeRef }.distinct()} " +
+                "properties=${group.operations.map { it.propertyKey }} " +
+                "participants=${group.transitionCompletions.size}"
+        }
         val operationsByView = group.operations.groupBy { it.view }
         val replacingProperties = group.operations.mapTo(mutableSetOf()) {
             it.view.nativeRef to it.propertyKey
@@ -206,6 +436,9 @@ internal class NativeAnimationCoordinator private constructor(
                 group.propertyAnimations[operation.propertyKey] ?: group.animation
             }
             group.pendingCallbacksByView[view.nativeRef] = operationBatches.size
+            NativeAnimationTrace.log {
+                "enqueue group=${group.id} view=${view.nativeRef} batches=${operationBatches.size}"
+            }
             declarativeView.registerPersistentNativeAnimationCompletion(
                 group.animation.key
             ) { finished: Boolean ->
@@ -226,8 +459,15 @@ internal class NativeAnimationCoordinator private constructor(
             ).maxOf { it.nativeCallbackTimeoutMillis() }
         group.timeoutRef = pagerScope.setTimeout(timeoutMillis) {
             if (runningGroups[group.id] === group) {
+                NativeAnimationTrace.log {
+                    "timeout group=${group.id} pending=${group.pendingCallbacksByView}"
+                }
                 snapCommittedGroupToLogicalTarget(group)
-                finish(group, false)
+                finish(
+                    group = group,
+                    result = false,
+                    transitionCompletion = TransitionCompletion.Finished
+                )
             }
         }
         // Commit only after every descriptor and target property has entered the render queue.
@@ -237,10 +477,23 @@ internal class NativeAnimationCoordinator private constructor(
     }
 
     private fun onViewAnimationFinished(group: Group, viewRef: Int, finished: Boolean) {
-        if (runningGroups[group.id] !== group) return
+        if (runningGroups[group.id] !== group) {
+            NativeAnimationTrace.log {
+                "ignore callback group=${group.id} view=$viewRef finished=$finished reason=not-running"
+            }
+            return
+        }
+        NativeAnimationTrace.log {
+            "callback group=${group.id} view=$viewRef finished=$finished " +
+                "pending=${group.pendingCallbacksByView}"
+        }
         if (!finished) {
             snapCommittedGroupToLogicalTarget(group)
-            finish(group, false)
+            finish(
+                group = group,
+                result = false,
+                transitionCompletion = TransitionCompletion.Finished
+            )
             return
         }
         val remaining = (group.pendingCallbacksByView[viewRef] ?: return) - 1
@@ -252,7 +505,17 @@ internal class NativeAnimationCoordinator private constructor(
         if (group.pendingCallbacksByView.isEmpty()) finish(group, true)
     }
 
-    private fun finish(group: Group, result: Boolean) {
+    private fun finish(
+        group: Group,
+        result: Boolean,
+        transitionCompletion: TransitionCompletion =
+            if (result) TransitionCompletion.Finished else TransitionCompletion.Superseded
+    ) {
+        NativeAnimationTrace.log {
+            "finish group=${group.id} result=$result transition=$transitionCompletion " +
+                "active=${activeGroup === group} " +
+                "pending=${group.pendingCallbacksByView}"
+        }
         if (activeGroup === group) activeGroup = null
         runningGroups.remove(group.id)
         group.operations.map { it.view }.distinct().forEach {
@@ -268,10 +531,13 @@ internal class NativeAnimationCoordinator private constructor(
                 group.continuation.cancel()
             }
         }
-        group.transitionCompletions.forEach { it(result) }
+        group.transitionCompletions.forEach { it(transitionCompletion) }
     }
 
     private fun rollback(group: Group) {
+        NativeAnimationTrace.log {
+            "rollback group=${group.id} operations=${group.operations.size}"
+        }
         group.operations.asReversed().forEach {
             if (it.previousValue == null) {
                 it.attr.removePropCache(it.propertyKey)
@@ -284,13 +550,19 @@ internal class NativeAnimationCoordinator private constructor(
 
     private fun cancelActiveGroup() {
         val old = activeGroup ?: return
+        NativeAnimationTrace.log {
+            "cancel active group=${old.id} committed=${old.committed}"
+        }
         rollback(old)
         activeGroup = null
         old.continuation?.cancel()
-        old.transitionCompletions.forEach { it(false) }
+        old.transitionCompletions.forEach { it(TransitionCompletion.Fallback) }
     }
 
     private fun snapCommittedGroupToLogicalTarget(group: Group) {
+        NativeAnimationTrace.log {
+            "snap group=${group.id} views=${group.operations.map { it.view.nativeRef }.distinct()}"
+        }
         val snap = Animation.nativeSnap(0f, "composeNativeAnimationCancel_${group.id}")
         group.operations.groupBy { it.view }.forEach { (view, operations) ->
             view.syncProp(Attr.StyleConst.ANIMATION, snap.toString())
@@ -302,6 +574,9 @@ internal class NativeAnimationCoordinator private constructor(
     }
 
     override fun destroy() {
+        NativeAnimationTrace.log {
+            "destroy active=${activeGroup?.id} running=${runningGroups.keys}"
+        }
         destroyed = true
         cancelActiveGroup()
         runningGroups.values.toList().forEach {
@@ -309,7 +584,9 @@ internal class NativeAnimationCoordinator private constructor(
             it.timeoutRef?.let { timeoutRef -> pagerScope.clearTimeout(timeoutRef) }
             it.timeoutRef = null
             if (it.continuation?.isActive == true) it.continuation.cancel()
-            it.transitionCompletions.forEach { completion -> completion(false) }
+            it.transitionCompletions.forEach { completion ->
+                completion(TransitionCompletion.Superseded)
+            }
         }
         runningGroups.clear()
         pager.setValueForKey(NativeAnimationBridge.PAGER_CACHE_KEY, null)
@@ -328,6 +605,14 @@ internal class NativeAnimationCoordinator private constructor(
             null
         }
 
+        fun currentExistingOrNull(): NativeAnimationCoordinator? = try {
+            PagerManager.getCurrentPager()
+                .getValueForKey(NativeAnimationBridge.PAGER_CACHE_KEY)
+                as? NativeAnimationCoordinator
+        } catch (_: Throwable) {
+            null
+        }
+
         fun getOrCreate(pager: IPager): NativeAnimationCoordinator {
             val existing =
                 pager.getValueForKey(NativeAnimationBridge.PAGER_CACHE_KEY)
@@ -338,4 +623,81 @@ internal class NativeAnimationCoordinator private constructor(
             }
         }
     }
+
+    private fun Group.endpoints(propertyKey: String): List<Endpoint> =
+        propertyEndpoints[propertyKey].orEmpty() + genericEndpoints
+
+    private fun Group.owns(view: AbstractBaseView<*, *>, propertyKey: String): Boolean =
+        (view.nativeRef to propertyKey) in ownedProperties
+
+    private fun Group.matchesFloatEndpoint(
+        propertyKey: String,
+        initialValue: Float,
+        targetValue: Float
+    ): Boolean = endpoints(propertyKey).any { endpoint ->
+        val initial = endpoint.initialValue as? Float ?: return@any false
+        val target = endpoint.targetValue as? Float ?: return@any false
+        !initial.approximately(target) &&
+            initialValue.approximately(initial) &&
+            targetValue.approximately(target)
+    }
+
+    private fun Group.matchesStructuredTransformEndpoint(
+        initialX: Float,
+        initialY: Float,
+        targetX: Float,
+        targetY: Float,
+        initialOrigin: TransformOrigin,
+        targetOrigin: TransformOrigin
+    ): Boolean = endpoints(Attr.StyleConst.TRANSFORM).any { endpoint ->
+        when {
+            endpoint.initialValue is IntOffset && endpoint.targetValue is IntOffset -> {
+                initialX.approximately(endpoint.initialValue.x.toFloat()) &&
+                    initialY.approximately(endpoint.initialValue.y.toFloat()) &&
+                    targetX.approximately(endpoint.targetValue.x.toFloat()) &&
+                    targetY.approximately(endpoint.targetValue.y.toFloat())
+            }
+            endpoint.initialValue is Offset && endpoint.targetValue is Offset -> {
+                initialX.approximately(endpoint.initialValue.x) &&
+                    initialY.approximately(endpoint.initialValue.y) &&
+                    targetX.approximately(endpoint.targetValue.x) &&
+                    targetY.approximately(endpoint.targetValue.y)
+            }
+            endpoint.initialValue is TransformOrigin &&
+                endpoint.targetValue is TransformOrigin -> {
+                initialOrigin == endpoint.initialValue && targetOrigin == endpoint.targetValue
+            }
+            else -> false
+        }
+    }
+
+    private fun Group.matchesPropertyEndpoint(
+        propertyKey: String,
+        previousValue: Any?,
+        targetValue: Any
+    ): Boolean = endpoints(propertyKey).any { endpoint ->
+        when (val expectedTarget = endpoint.targetValue) {
+            is Color -> {
+                val initialColor = endpoint.initialValue as? Color ?: return@any false
+                val initialArgb = initialColor.toArgb().toLong() and 0xFFFFFFFFL
+                val targetArgb = expectedTarget.toArgb().toLong() and 0xFFFFFFFFL
+                previousValue?.toString() == initialArgb.toString() &&
+                    targetValue.toString() == targetArgb.toString()
+            }
+            is Float -> {
+                (previousValue as? Number)?.toFloat()?.let { previous ->
+                    (targetValue as? Number)?.toFloat()?.let { target ->
+                        val initial = endpoint.initialValue as? Float
+                        initial != null &&
+                            previous.approximately(initial) &&
+                            target.approximately(expectedTarget)
+                    }
+                } == true
+            }
+            else -> false
+        }
+    }
+
+    private fun Float.approximately(other: Float): Boolean =
+        abs(this - other) <= 0.001f
 }

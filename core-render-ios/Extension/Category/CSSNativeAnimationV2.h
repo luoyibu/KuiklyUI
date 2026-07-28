@@ -18,6 +18,7 @@ FOUNDATION_EXPORT BOOL KRParseNativeAnimationV2(
 FOUNDATION_EXPORT BOOL KRPerformNativeAnimationV2(
     UIView *view,
     NSString *propertyKey,
+    NSString *animationKey,
     NSString *kind,
     NSArray<NSNumber *> *values,
     NSTimeInterval duration,

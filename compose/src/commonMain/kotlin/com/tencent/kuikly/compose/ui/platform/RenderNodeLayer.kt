@@ -156,7 +156,7 @@ internal class RenderNodeLayer(
     private var mutatedFields: Int = 0
 
     override fun updateLayerProperties(scope: ReusableGraphicsLayerScope) {
-        NativeAnimationCoordinator.currentExistingOrNull()?.registerGraphicsLayerTarget(
+        NativeAnimationCoordinator.existingForView(view)?.registerGraphicsLayerTarget(
             view = view,
             previousAlpha = alpha,
             previousScaleX = scaleX,

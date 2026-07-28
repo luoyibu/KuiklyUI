@@ -32,16 +32,29 @@ internal fun <T, V : AnimationVector> AnimationSpec<T>.toNativeAnimationOrNull(
     initialVelocity: T,
     converter: TwoWayConverter<T, V>
 ): CoreAnimation? {
-    val original = nativePreferredOriginalOrNull() ?: return null
+    val original = nativePreferredOriginalOrNull() ?: run {
+        NativeAnimationTrace.log { "descriptor rejected reason=not-preferred spec=$this" }
+        return null
+    }
     val velocityVector = converter.convertToVector(initialVelocity)
-    if ((0 until velocityVector.size).any { velocityVector[it] != 0f }) return null
+    if ((0 until velocityVector.size).any { velocityVector[it] != 0f }) {
+        NativeAnimationTrace.log {
+            "descriptor rejected reason=non-zero-velocity spec=$original velocity=$velocityVector"
+        }
+        return null
+    }
 
     return when (original) {
         is TweenSpec<T> -> {
             val controlPoints = when (val easing = original.easing) {
                 LinearEasing -> floatArrayOf(0f, 0f, 1f, 1f)
                 is CubicBezierEasing -> floatArrayOf(easing.a, easing.b, easing.c, easing.d)
-                else -> return null
+                else -> {
+                    NativeAnimationTrace.log {
+                        "descriptor rejected reason=unsupported-easing spec=$original easing=$easing"
+                    }
+                    return null
+                }
             }
             CoreAnimation.nativeCubic(
                 durationS = original.durationMillis / 1000f,
@@ -71,6 +84,9 @@ internal fun <T, V : AnimationVector> AnimationSpec<T>.toNativeAnimationOrNull(
             )
         }
         is SnapSpec<T> -> CoreAnimation.nativeSnap(original.delay / 1000f, "")
-        else -> null
+        else -> {
+            NativeAnimationTrace.log { "descriptor rejected reason=unsupported-spec spec=$original" }
+            null
+        }
     }
 }

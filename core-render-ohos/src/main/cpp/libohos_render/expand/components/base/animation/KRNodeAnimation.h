@@ -291,6 +291,7 @@ class KRNodeAnimation : public IKRNodeAnimation {
         handler->durationS = duration;
         handler->repeatForever = repeatForever;
         handler->weakView = weakView;
+        handler->isSnap = nativeV2.kind == "snap";
 
         std::shared_ptr<KRNodeSpringAnimationHandler> springHandler =
             std::dynamic_pointer_cast<KRNodeSpringAnimationHandler>(handler_);

@@ -81,6 +81,7 @@ internal class NativeAnimationCoordinator private constructor(
         val ownedProperties: MutableSet<Pair<Int, String>> = mutableSetOf(),
         var unsupported: Boolean = false,
         var hasUnhintedParticipant: Boolean = false,
+        var deferredEmptyCollectionPass: Boolean = false,
         var preparingInitialState: Boolean = transitionKey != null,
         var committed: Boolean = false,
         var timeoutRef: String? = null,
@@ -109,7 +110,8 @@ internal class NativeAnimationCoordinator private constructor(
                 nextGroupId++,
                 animation,
                 animation.toString(),
-                continuation
+                continuation,
+                hasUnhintedParticipant = true
             )
             animation.key = "composeNativeAnimation_${group.id}"
             group.genericEndpoints += Endpoint(initialValue, targetValue)
@@ -125,10 +127,17 @@ internal class NativeAnimationCoordinator private constructor(
                     rollback(group)
                     activeGroup = null
                 } else if (runningGroups[group.id] === group) {
-                    NativeAnimationTrace.log {
-                        "cancel running group=${group.id} action=snap-and-finish-false"
+                    if (group.isDelayedNativeSnap()) {
+                        NativeAnimationTrace.log {
+                            "cancel running group=${group.id} " +
+                                "action=preserve-pending-snap-for-replacement"
+                        }
+                    } else {
+                        NativeAnimationTrace.log {
+                            "cancel running group=${group.id} action=snap-and-finish-false"
+                        }
+                        snapCommittedGroupToLogicalTarget(group)
                     }
-                    snapCommittedGroupToLogicalTarget(group)
                     finish(group, false)
                 }
             }
@@ -272,7 +281,7 @@ internal class NativeAnimationCoordinator private constructor(
             group.ownedProperties += view.nativeRef to propertyKey
         }
         if (propertyKey !in SUPPORTED_PROPERTIES) {
-            if (!group.hasUnhintedParticipant || previousValue == null) {
+            if (!group.hasUnhintedParticipant) {
                 NativeAnimationTrace.log {
                     "pass unrelated group=${group.id} view=${view.nativeRef} " +
                         "property=$propertyKey"
@@ -358,17 +367,44 @@ internal class NativeAnimationCoordinator private constructor(
         }
     }
 
+    /**
+     * Associates a solid background write with the Animatable/Transition endpoint that produced
+     * it. Background is synchronized from a draw modifier rather than [RenderNodeLayer], so it
+     * needs an explicit ownership hook of its own.
+     */
+    fun registerBackgroundColorTarget(
+        view: AbstractBaseView<*, *>?,
+        previousColor: Color?,
+        targetColor: Color
+    ) {
+        val group = activeGroup ?: return
+        if (
+            view == null ||
+            previousColor == null ||
+            group.preparingInitialState ||
+            group.committed
+        ) {
+            return
+        }
+        if (group.matchesColorEndpoint(previousColor, targetColor)) {
+            group.ownedProperties += view.nativeRef to Attr.StyleConst.BACKGROUND_COLOR
+        }
+    }
+
     override fun stageFrame(view: AbstractBaseView<*, *>): Boolean {
         val group = activeGroup ?: return false
         if (group.committed) return false
         if (group.preparingInitialState) return false
-        // A frame write is expected when an entering/crossfading node is first laid out. Do not
-        // consume it: only a transaction with no supported visual property is a layout animation.
+        // Entering/crossfading nodes were laid out during the initial-state materialization pass.
+        // The following target-state pass exists only to collect supported visual properties.
+        // Releasing its frame writes would expose transient page/sibling layout from this extra
+        // pass (for example a LazyColumn section title briefly moving during AnimatedVisibility).
         if (group.propertyAnimations.isNotEmpty()) {
             NativeAnimationTrace.log {
-                "pass frame group=${group.id} view=${view.nativeRef} reason=visual-transition"
+                "consume frame group=${group.id} view=${view.nativeRef} " +
+                    "reason=visual-transition-target-pass"
             }
-            return false
+            return true
         }
         group.unsupported = true
         NativeAnimationTrace.log {
@@ -403,9 +439,23 @@ internal class NativeAnimationCoordinator private constructor(
             return
         }
         if (
-            group.unsupported ||
-            group.operations.isEmpty()
+            group.continuation != null &&
+            !group.unsupported &&
+            group.operations.isEmpty() &&
+            !group.deferredEmptyCollectionPass
         ) {
+            // Animatable/animateAsState is commonly started from a side effect after the current
+            // render pass has already drawn. Its logical target mutation schedules the following
+            // pass, so an empty transaction here does not yet mean the property is unsupported.
+            // Keep the group armed for exactly one additional pass. A truly unsupported consumer
+            // still falls back on that next pass (or immediately when a frame write marks it).
+            group.deferredEmptyCollectionPass = true
+            NativeAnimationTrace.log {
+                "defer empty target pass group=${group.id}"
+            }
+            return
+        }
+        if (group.unsupported || group.operations.isEmpty()) {
             NativeAnimationTrace.log {
                 "fallback group=${group.id} unsupported=${group.unsupported} " +
                     "operations=${group.operations.size}"
@@ -593,6 +643,8 @@ internal class NativeAnimationCoordinator private constructor(
     }
 
     companion object {
+        private const val NATIVE_DESCRIPTOR_DELAY_INDEX = 5
+
         private val SUPPORTED_PROPERTIES = setOf(
             Attr.StyleConst.OPACITY,
             Attr.StyleConst.TRANSFORM,
@@ -608,6 +660,21 @@ internal class NativeAnimationCoordinator private constructor(
         fun currentExistingOrNull(): NativeAnimationCoordinator? = try {
             PagerManager.getCurrentPager()
                 .getValueForKey(NativeAnimationBridge.PAGER_CACHE_KEY)
+                as? NativeAnimationCoordinator
+        } catch (_: Throwable) {
+            null
+        }
+
+        /**
+         * Render/draw callbacks are not guaranteed to retain PagerManager's current-pager
+         * context, especially when an Animatable was started from a coroutine. Resolve the
+         * page-local coordinator from the actual target View instead.
+         */
+        fun existingForView(
+            view: AbstractBaseView<*, *>?
+        ): NativeAnimationCoordinator? = try {
+            view?.getPager()
+                ?.getValueForKey(NativeAnimationBridge.PAGER_CACHE_KEY)
                 as? NativeAnimationCoordinator
         } catch (_: Throwable) {
             null
@@ -696,6 +763,22 @@ internal class NativeAnimationCoordinator private constructor(
             }
             else -> false
         }
+    }
+
+    private fun Group.matchesColorEndpoint(
+        initialColor: Color,
+        targetColor: Color
+    ): Boolean = endpoints(Attr.StyleConst.BACKGROUND_COLOR).any { endpoint ->
+        endpoint.initialValue == initialColor && endpoint.targetValue == targetColor
+    }
+
+    private fun Group.isDelayedNativeSnap(): Boolean {
+        if (!descriptorSignature.endsWith(" v2,snap")) return false
+        return descriptorSignature
+            .split(' ')
+            .getOrNull(NATIVE_DESCRIPTOR_DELAY_INDEX)
+            ?.toFloatOrNull()
+            ?.let { it > 0f } == true
     }
 
     private fun Float.approximately(other: Float): Boolean =

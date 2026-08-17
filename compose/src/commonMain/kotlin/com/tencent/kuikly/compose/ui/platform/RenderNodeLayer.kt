@@ -18,6 +18,7 @@ package com.tencent.kuikly.compose.ui.platform
 
 import com.tencent.kuikly.compose.extension.approximatelyEqual
 import com.tencent.kuikly.compose.animation.core.NativeAnimationCoordinator
+import com.tencent.kuikly.compose.animation.core.NativeAnimationTrace
 import com.tencent.kuikly.compose.ui.KuiklyPath
 import com.tencent.kuikly.compose.ui.geometry.MutableRect
 import com.tencent.kuikly.compose.ui.geometry.Offset
@@ -156,7 +157,16 @@ internal class RenderNodeLayer(
     private var mutatedFields: Int = 0
 
     override fun updateLayerProperties(scope: ReusableGraphicsLayerScope) {
-        NativeAnimationCoordinator.existingForView(view)?.registerGraphicsLayerTarget(
+        val nativeAnimationCoordinator = NativeAnimationCoordinator.existingForView(view)
+        if (nativeAnimationCoordinator != null && (clip || scope.clip)) {
+            NativeAnimationTrace.log {
+                "graphicsLayer static-clip view=${view?.nativeRef} " +
+                    "previousClip=$clip targetClip=${scope.clip} " +
+                    "previousRoundRect=$roundRect targetRoundRect=${scope.roundRect} " +
+                    "targetTranslation=(${scope.translationX},${scope.translationY})"
+            }
+        }
+        nativeAnimationCoordinator?.registerGraphicsLayerTarget(
             view = view,
             previousAlpha = alpha,
             previousScaleX = scaleX,

@@ -31,6 +31,7 @@ import com.tencent.kuikly.compose.animation.core.Animatable
 import com.tencent.kuikly.compose.animation.core.CubicBezierEasing
 import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.animation.core.FiniteAnimationSpec
+import com.tencent.kuikly.compose.animation.core.MutableTransitionState
 import com.tencent.kuikly.compose.animation.core.Spring
 import com.tencent.kuikly.compose.animation.core.animateFloat
 import com.tencent.kuikly.compose.animation.core.animateFloatAsState
@@ -64,13 +65,18 @@ import com.tencent.kuikly.compose.material3.Button
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Alignment
+import com.tencent.kuikly.compose.ui.ExperimentalComposeUiApi
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.graphics.TransformOrigin
 import com.tencent.kuikly.compose.ui.graphics.graphicsLayer
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
+import com.tencent.kuikly.compose.ui.unit.IntOffset
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.tencent.kuikly.compose.ui.unit.sp
+import com.tencent.kuikly.compose.ui.window.Dialog
+import com.tencent.kuikly.compose.ui.window.Popup
+import com.tencent.kuikly.compose.ui.window.PopupProperties
 import com.tencent.kuikly.core.annotations.Page
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -123,6 +129,8 @@ private fun NativeAnimationDemoContent() {
         item { NativeSlideDirectionsDemo() }
         item { NativeFallbackDemo() }
         item { NativeAnimationStressDemo() }
+        item { NativeDialogContentDemo() }
+        item { NativePopupContentDemo() }
         item { Spacer(Modifier.height(24.dp)) }
     }
 }
@@ -850,6 +858,165 @@ private fun NativeAnimationStressDemo() {
             }
             Button(onClick = { nativeTargetRight = !nativeTargetRight }) {
                 Text("Native")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
+@Composable
+private fun NativeDialogContentDemo() {
+    DemoSection(
+        title = "12. Dialog 内容：fade + scale",
+        description = "Dialog 容器保持原实现，仅将内容的出现/退出动画切换为 Native。"
+    ) {
+        var composeVisible by remember { mutableStateOf(false) }
+        var nativeVisible by remember { mutableStateOf(false) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DemoButton("Compose Dialog") { composeVisible = true }
+            DemoButton("Native Dialog") { nativeVisible = true }
+        }
+        AnimatedDialogContent(
+            visible = composeVisible,
+            useNative = false,
+            onDismissRequest = { composeVisible = false }
+        )
+        AnimatedDialogContent(
+            visible = nativeVisible,
+            useNative = true,
+            onDismissRequest = { nativeVisible = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
+@Composable
+private fun AnimatedDialogContent(
+    visible: Boolean,
+    useNative: Boolean,
+    onDismissRequest: () -> Unit
+) {
+    val visibleState = remember { MutableTransitionState(false) }
+    LaunchedEffect(visible) {
+        visibleState.targetState = visible
+    }
+    if (visible || visibleState.currentState || !visibleState.isIdle) {
+        Dialog(onDismissRequest = onDismissRequest) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                val baseSpec = tween<Float>(500)
+                val spec = if (useNative) baseSpec.preferNative() else baseSpec
+                com.tencent.kuikly.compose.animation.AnimatedVisibility(
+                    visibleState = visibleState,
+                    enter = fadeIn(spec) + scaleIn(spec, initialScale = 0.72f),
+                    exit = fadeOut(spec) + scaleOut(spec, targetScale = 0.72f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .width(260.dp)
+                            .background(if (useNative) Color(0xFF2E7D32) else Color(0xFF1565C0))
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            if (useNative) "Native Dialog" else "Compose Dialog",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text("点击关闭，观察 fade + scale 的退出过程", color = Color.White)
+                        DemoButton("关闭") { onDismissRequest() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(
+    ExperimentalKuiklyNativeAnimationApi::class,
+    ExperimentalComposeUiApi::class
+)
+@Composable
+private fun NativePopupContentDemo() {
+    DemoSection(
+        title = "13. Popup 内容：fade + scale",
+        description = "Popup 锚点保持静态，仅将菜单内容的 fade + scale 切换为 Native。"
+    ) {
+        var composeVisible by remember { mutableStateOf(false) }
+        var nativeVisible by remember { mutableStateOf(false) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DemoButton("Compose Popup") { composeVisible = true }
+            DemoButton("Native Popup") { nativeVisible = true }
+        }
+        AnimatedPopupContent(
+            visible = composeVisible,
+            useNative = false,
+            onDismissRequest = { composeVisible = false }
+        )
+        AnimatedPopupContent(
+            visible = nativeVisible,
+            useNative = true,
+            onDismissRequest = { nativeVisible = false }
+        )
+    }
+}
+
+@OptIn(
+    ExperimentalKuiklyNativeAnimationApi::class,
+    ExperimentalComposeUiApi::class
+)
+@Composable
+private fun AnimatedPopupContent(
+    visible: Boolean,
+    useNative: Boolean,
+    onDismissRequest: () -> Unit
+) {
+    val visibleState = remember { MutableTransitionState(false) }
+    LaunchedEffect(visible) {
+        visibleState.targetState = visible
+    }
+    if (visible || visibleState.currentState || !visibleState.isIdle) {
+        Popup(
+            alignment = Alignment.TopEnd,
+            offset = IntOffset(-32, 180),
+            onDismissRequest = onDismissRequest,
+            properties = PopupProperties(
+                focusable = true,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true,
+                clippingEnabled = true
+            )
+        ) {
+            val baseSpec = tween<Float>(450)
+            val spec = if (useNative) baseSpec.preferNative() else baseSpec
+            val origin = TransformOrigin(1f, 0f)
+            com.tencent.kuikly.compose.animation.AnimatedVisibility(
+                visibleState = visibleState,
+                enter = fadeIn(spec) +
+                    scaleIn(spec, initialScale = 0.7f, transformOrigin = origin),
+                exit = fadeOut(spec) +
+                    scaleOut(spec, targetScale = 0.7f, transformOrigin = origin)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(210.dp)
+                        .background(if (useNative) Color(0xFF6A1B9A) else Color(0xFF00695C))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        if (useNative) "Native Popup" else "Compose Popup",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("菜单项 A", color = Color.White)
+                    Text("菜单项 B", color = Color.White)
+                    DemoButton("关闭") { onDismissRequest() }
+                }
             }
         }
     }

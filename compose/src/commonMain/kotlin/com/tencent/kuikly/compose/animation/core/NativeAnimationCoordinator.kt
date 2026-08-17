@@ -482,6 +482,17 @@ internal class NativeAnimationCoordinator private constructor(
         }.toList().forEach { finish(it, false) }
         operationsByView.forEach { (view, operations) ->
             val declarativeView = view as DeclarativeBaseView<*, *>
+            operations.forEach { operation ->
+                if (operation.previousValue == null) {
+                    nativeDefaultInitialValue(operation.propertyKey)?.let { initialValue ->
+                        NativeAnimationTrace.log {
+                            "materialize default group=${group.id} view=${view.nativeRef} " +
+                                "property=${operation.propertyKey} value=$initialValue"
+                        }
+                        view.syncProp(operation.propertyKey, initialValue)
+                    }
+                }
+            }
             val operationBatches = operations.groupBy { operation ->
                 group.propertyAnimations[operation.propertyKey] ?: group.animation
             }
@@ -783,4 +794,11 @@ internal class NativeAnimationCoordinator private constructor(
 
     private fun Float.approximately(other: Float): Boolean =
         abs(this - other) <= 0.001f
+}
+
+internal fun nativeDefaultInitialValue(propertyKey: String): Any? = when (propertyKey) {
+    Attr.StyleConst.OPACITY -> 1f
+    Attr.StyleConst.TRANSFORM ->
+        "0.0|1.0 1.0|0.0 0.0|0.5 0.5|0.0 0.0|0.0 0.0"
+    else -> null
 }

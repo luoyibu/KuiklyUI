@@ -26,6 +26,8 @@
 #define ANIMATION_KEY @"animation"
 #define TRANSFORM_KEY @"transform"
 
+static const void *KRNativeV2TransformAnimationKey = &KRNativeV2TransformAnimationKey;
+
 /// Default iOS keyboard animation curve value from UIKeyboardAnimationCurveUserInfoKey
 static const NSInteger KRDefaultKeyboardAnimationCurve = 7;
 
@@ -2022,16 +2024,58 @@ static CGFloat KRSpringProgress(
         }
     };
     if (self.isNativeV2 && [propertyKey isEqualToString:TRANSFORM_KEY]) {
+        NSString *previousAnimationKey =
+            objc_getAssociatedObject(view, KRNativeV2TransformAnimationKey);
+        BOOL beginFromCurrentState = previousAnimationKey.length > 0;
+        NSString *animationKey = self.animationKey ?: @"";
+        objc_setAssociatedObject(
+            view,
+            KRNativeV2TransformAnimationKey,
+            animationKey,
+            OBJC_ASSOCIATION_COPY_NONATOMIC
+        );
+        NSLog(
+            @"[NativeAnimation][iOS] transformTiming key=%@ view=%p beginFromCurrent=%d previousKey=%@",
+            animationKey,
+            view,
+            beginFromCurrentState,
+            previousAnimationKey ?: @""
+        );
         block();
-        isKeyFrameAnimation = [self performKeyFrameAnimationsWithCompletion:propertyCompletion];
+        __weak UIView *weakView = view;
+        isKeyFrameAnimation = [self
+            performKeyFrameAnimationsWithCompletion:^(BOOL finished) {
+                UIView *strongView = weakView;
+                NSString *currentAnimationKey = strongView
+                    ? objc_getAssociatedObject(strongView, KRNativeV2TransformAnimationKey)
+                    : nil;
+                if (strongView && [currentAnimationKey isEqualToString:animationKey]) {
+                    objc_setAssociatedObject(
+                        strongView,
+                        KRNativeV2TransformAnimationKey,
+                        nil,
+                        OBJC_ASSOCIATION_COPY_NONATOMIC
+                    );
+                }
+                propertyCompletion(finished);
+            }
+            beginFromCurrentState:beginFromCurrentState];
         if (!isKeyFrameAnimation) {
+            objc_setAssociatedObject(
+                view,
+                KRNativeV2TransformAnimationKey,
+                nil,
+                OBJC_ASSOCIATION_COPY_NONATOMIC
+            );
             propertyCompletion(NO);
         }
         return;
     }
     [self performAnimateWithType:_animationType view:view propertyKey:propertyKey animations:^{
         block();
-        isKeyFrameAnimation = [self performKeyFrameAnimationsWithCompletion:propertyCompletion]; // 属性动画分解出来的关键帧动画
+        isKeyFrameAnimation = [self
+            performKeyFrameAnimationsWithCompletion:propertyCompletion
+            beginFromCurrentState:NO]; // 属性动画分解出来的关键帧动画
     } completion:^(BOOL finished) {
         if (!isKeyFrameAnimation) {
             propertyCompletion(finished);
@@ -2082,7 +2126,8 @@ static CGFloat KRSpringProgress(
 }
 
 
-- (BOOL)performKeyFrameAnimationsWithCompletion:(void (^)(BOOL finished))completion  {
+- (BOOL)performKeyFrameAnimationsWithCompletion:(void (^)(BOOL finished))completion
+                           beginFromCurrentState:(BOOL)beginFromCurrentState {
     if (!_keyFrameAniamtions.count) {
         return NO;
     }
@@ -2090,8 +2135,10 @@ static CGFloat KRSpringProgress(
     _keyFrameAniamtions = nil;
     UIViewKeyframeAnimationOptions option = self.isNativeV2
         ? UIViewKeyframeAnimationOptionCalculationModeLinear
-            | UIViewAnimationOptionBeginFromCurrentState
         : UIViewKeyframeAnimationOptionCalculationModeCubicPaced;
+    if (self.isNativeV2 && beginFromCurrentState) {
+        option |= UIViewAnimationOptionBeginFromCurrentState;
+    }
     if (_repeatForever) {
         option |= (UIViewKeyframeAnimationOptions)UIViewAnimationOptionRepeat;
     }

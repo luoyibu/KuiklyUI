@@ -902,6 +902,13 @@ class Transition<S> internal constructor(
     val parentTransition: Transition<*>?,
     val label: String? = null
 ) {
+    /**
+     * Child transitions created by AnimatedContent belong to the same logical state change as
+     * their root transition. Sharing this key lets their Native properties commit atomically.
+     */
+    internal val nativeAnimationGroupKey: Transition<*>
+        get() = parentTransition?.nativeAnimationGroupKey ?: this
+
     @PublishedApi
     internal constructor(
         transitionState: TransitionState<S>,
@@ -1586,7 +1593,7 @@ class Transition<S> internal constructor(
 
             val zeroVelocity = velocityVector.newInstance()
             val nativeAccepted = nativeAnimationState.tryStart(
-                transitionKey = this@Transition,
+                transitionKey = nativeAnimationGroupKey,
                 label = label,
                 animationSpec = animationSpec,
                 initialValue = initialValue,

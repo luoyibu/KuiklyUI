@@ -8,8 +8,10 @@
 package com.tencent.kuikly.compose.animation
 
 import com.tencent.kuikly.compose.animation.core.FiniteAnimationSpec
+import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.animation.core.Transition
 import com.tencent.kuikly.compose.animation.core.nativePreferredOriginalOrNull
+import com.tencent.kuikly.compose.animation.core.preferNative
 import com.tencent.kuikly.compose.animation.core.retargetNativeCurve
 import com.tencent.kuikly.compose.animation.core.spring
 import com.tencent.kuikly.compose.ui.graphics.TransformOrigin
@@ -92,3 +94,83 @@ internal fun EnterTransition.retainForNativeInterruptionOrNone(): EnterTransitio
         EnterTransition.None
     }
 }
+
+/**
+ * NavHost owns the page-transition policy, so callers should not need to opt each spec in
+ * manually. Pure slide and slide + fade transforms are promoted together. Scale and layout
+ * effects are returned unchanged and therefore keep the Compose clock as one logical group.
+ */
+@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
+internal fun ContentTransform.preferNativeNavHostSlide(): ContentTransform {
+    val enterData = targetContentEnter.data
+    val exitData = initialContentExit.data
+    val hasSlide = enterData.slide != null || exitData.slide != null
+    if (
+        !hasSlide ||
+        !enterData.hasOnlySlideAndFadeOrNoEffect() ||
+        !exitData.hasOnlySlideAndFadeOrNoEffect()
+    ) {
+        return this
+    }
+
+    var nativeEnter = targetContentEnter
+    enterData.fade?.let { fade ->
+        nativeEnter += fadeIn(
+            animationSpec = fade.animationSpec.preferNative(),
+            initialAlpha = fade.alpha
+        )
+    }
+    enterData.slide?.let { slide ->
+        nativeEnter += slideIn(
+            animationSpec = slide.animationSpec.preferNative(),
+            initialOffset = slide.slideOffset
+        )
+    }
+
+    var nativeExit = initialContentExit
+    exitData.fade?.let { fade ->
+        nativeExit += fadeOut(
+            animationSpec = fade.animationSpec.preferNative(),
+            targetAlpha = fade.alpha
+        )
+    }
+    exitData.slide?.let { slide ->
+        nativeExit += slideOut(
+            animationSpec = slide.animationSpec.preferNative(),
+            targetOffset = slide.slideOffset
+        )
+    }
+
+    return ContentTransform(
+        targetContentEnter = nativeEnter,
+        initialContentExit = nativeExit,
+        targetContentZIndex = targetContentZIndex,
+        sizeTransform = null
+    ).also {
+        it.initialTargetContentZIndex = initialTargetContentZIndex
+    }
+}
+
+/**
+ * Keep navigation destinations in back-stack order while a slide transition is running.
+ *
+ * AnimatedContent otherwise places the target content above content with the same z-index. That
+ * is correct for push, but during pop it lets the previous page immediately cover most of the
+ * outgoing page. A stable back-stack z-index keeps the newer page above the older page for both
+ * directions and is independent of whether the slide uses the Compose or Native clock.
+ */
+internal fun ContentTransform.applyNavHostSlideZIndex(
+    targetZIndex: Float,
+    initialTargetZIndex: Float = targetZIndex
+): ContentTransform {
+    if (targetContentEnter.data.slide != null || initialContentExit.data.slide != null) {
+        targetContentZIndex = targetZIndex
+        initialTargetContentZIndex = initialTargetZIndex
+    }
+    return this
+}
+
+private fun TransitionData.hasOnlySlideAndFadeOrNoEffect(): Boolean =
+    scale == null &&
+        changeSize == null &&
+        effectsMap.isEmpty()

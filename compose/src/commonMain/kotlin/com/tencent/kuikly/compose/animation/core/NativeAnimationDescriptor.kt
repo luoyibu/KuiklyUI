@@ -18,9 +18,6 @@ package com.tencent.kuikly.compose.animation.core
 import com.tencent.kuikly.core.base.Animation as CoreAnimation
 import com.tencent.kuikly.core.base.nativeCubic
 import com.tencent.kuikly.core.base.nativeSnap
-import com.tencent.kuikly.core.base.nativeSpring
-
-private const val NANOS_PER_SECOND = 1_000_000_000f
 
 /**
  * Converts only the explicitly supported V2 subset. Returning null is the single capability
@@ -66,23 +63,9 @@ internal fun <T, V : AnimationVector> AnimationSpec<T>.toNativeAnimationOrNull(
                 key = ""
             )
         }
-        is SpringSpec<T> -> {
-            val settlingDurationS = TargetBasedAnimation(
-                animationSpec = original,
-                initialValue = initialValue,
-                targetValue = targetValue,
-                typeConverter = converter,
-                initialVelocity = initialVelocity
-            ).durationNanos / NANOS_PER_SECOND
-            CoreAnimation.nativeSpring(
-                durationS = settlingDurationS,
-                delayS = 0f,
-                stiffness = original.stiffness,
-                dampingRatio = original.dampingRatio,
-                initialVelocity = 0f,
-                key = ""
-            )
-        }
+        // Native spring thresholds and interruption velocity are platform-specific. Keep the
+        // first version deterministic by executing SpringSpec on the existing Compose clock.
+        is SpringSpec<T> -> null
         is SnapSpec<T> -> CoreAnimation.nativeSnap(original.delay / 1000f, "")
         else -> {
             NativeAnimationTrace.log { "descriptor rejected reason=unsupported-spec spec=$original" }

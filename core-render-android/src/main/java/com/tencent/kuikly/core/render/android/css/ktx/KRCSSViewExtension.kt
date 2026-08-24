@@ -639,13 +639,21 @@ private fun View.setHRAnimation(animation: String?) {
         }
         animation.isEmpty() -> {
             hrAnimation = null
-            commitHRAnimationsWithPropertyIsolation()
+            getViewData<ArrayMap<Int, KRCSSAnimation>>(KRCssConst.ANIMATION_QUEUE)?.toMap()?.forEach { (_, v) ->
+                // 取消所有正在播放中的动画，启动新的动画
+                if (v.isPlaying()) {
+                    v.cancelAnimation()
+                    v.removeFromAnimationQueue()
+                } else {
+                    v.commitAnimation()
+                }
+            }
         }
         else -> {
             val newAnimation = KRCSSAnimation(animation, this, context as? IKuiklyRenderContext)
-            newAnimation.onAnimationEndBlock = { hrAnimation: KRCSSAnimation, isCancel, propKey, animationKey ->
+            newAnimation.onAnimationEndBlock = { hrAnimation: KRCSSAnimation, finished, propKey, animationKey ->
                 animationCompletionBlock?.invoke(mapOf(
-                    "finish" to if (isCancel) 0 else 1,
+                    "finish" to if (finished) 1 else 0,
                     "attr" to propKey,
                     "animationKey" to animationKey
                 ))

@@ -131,8 +131,6 @@ class KRCSSAnimation(animation: String, view: View, context: IKuiklyRenderContex
      */
     fun supportAnimation(propKey: String): Boolean = supportAnimationHandlerCreator.containsKey(propKey)
 
-    fun animatedPropertyKeys(): Set<String> = animationOperationMap.keys
-
     /**
      * 记录待执行的动画，动画执行的时机为[commitAnimation]
      * @param animationType 动画类型，目前支持以下动画类型

@@ -63,8 +63,6 @@ void KRNodeAnimationHandler::start(std::weak_ptr<KRBasePropsHandler> target,
             }
         };
         const auto delayMs = static_cast<int>(delayS * UNIT_S_TO_MS);
-        KR_LOG_INFO << "[NativeAnimation][OHOS] schedule snap: propKey=" << propKey
-                    << ", delayMs=" << delayMs;
         if (delayMs > 0) {
             KRMainThread::RunOnMainThread(std::move(applySnap), delayMs);
         } else {

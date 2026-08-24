@@ -9,7 +9,6 @@
 #define CORE_RENDER_OHOS_KRNODENATIVEANIMATIONV2_H
 
 #include <arkui/native_animate.h>
-#include <cmath>
 #include <string>
 #include <vector>
 #include "libohos_render/utils/KRConvertUtil.h"
@@ -43,19 +42,6 @@ inline ArkUI_CurveHandle KRCreateNativeCubicBezierCurve(const std::vector<float>
         return nullptr;
     }
     return OH_ArkUI_Curve_CreateCubicBezierCurve(values[0], values[1], values[2], values[3]);
-}
-
-inline ArkUI_CurveHandle KRCreateNativeInterpolatingSpringCurve(
-    float velocity,
-    float stiffness,
-    float dampingRatio
-) {
-    return OH_ArkUI_Curve_CreateInterpolatingSpring(
-        velocity,
-        1.0,
-        stiffness,
-        2.0 * dampingRatio * std::sqrt(stiffness)
-    );
 }
 
 #endif  // CORE_RENDER_OHOS_KRNODENATIVEANIMATIONV2_H

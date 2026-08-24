@@ -15,10 +15,15 @@ FOUNDATION_EXPORT BOOL KRParseNativeAnimationV2(
     NSArray<NSNumber *> * _Nullable * _Nullable values
 );
 
+FOUNDATION_EXPORT CGFloat KRNativeAnimationV2Progress(
+    NSString *kind,
+    NSArray<NSNumber *> *values,
+    CGFloat fraction
+);
+
+FOUNDATION_EXPORT NSUInteger KRNativeAnimationV2TransformSampleCount(NSTimeInterval duration);
+
 FOUNDATION_EXPORT BOOL KRPerformNativeAnimationV2(
-    UIView *view,
-    NSString *propertyKey,
-    NSString *animationKey,
     NSString *kind,
     NSArray<NSNumber *> *values,
     NSTimeInterval duration,

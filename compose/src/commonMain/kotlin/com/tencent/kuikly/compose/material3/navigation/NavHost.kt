@@ -66,9 +66,6 @@ import com.tencent.kuikly.lifecycle.compose.LocalLifecycleOwner
  *   Defaults to [enterTransition].
  * @param popExitTransition callback to define exit transitions for pop (back) navigation.
  *   Defaults to [exitTransition].
- * @param preferNativeSlideAnimation whether pure slide and slide + fade page transitions should
- *   run on Native. Enabled by default; transitions containing scale or layout effects continue to
- *   use the Compose animation clock.
  * @param builder the builder used to construct the graph
  *
  * @see NavGraphBuilder
@@ -89,7 +86,39 @@ fun NavHost(
         enterTransition,
     popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
         exitTransition,
-    preferNativeSlideAnimation: Boolean = true,
+    builder: NavGraphBuilder.() -> Unit
+) = NavHost(
+    navController = navController,
+    startDestination = startDestination,
+    modifier = modifier,
+    route = route,
+    enterTransition = enterTransition,
+    exitTransition = exitTransition,
+    popEnterTransition = popEnterTransition,
+    popExitTransition = popExitTransition,
+    preferNativeSlideAnimation = true,
+    builder = builder
+)
+
+/**
+ * Variant of [NavHost] that can disable the default Native slide optimization.
+ * Transitions containing scale or layout effects continue to use the Compose animation clock.
+ */
+@Composable
+fun NavHost(
+    navController: NavHostController,
+    startDestination: String,
+    modifier: Modifier = Modifier,
+    route: String? = null,
+    enterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        { fadeIn() },
+    exitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        { fadeOut() },
+    popEnterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        enterTransition,
+    popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        exitTransition,
+    preferNativeSlideAnimation: Boolean,
     builder: NavGraphBuilder.() -> Unit
 ) {
     NavHost(
@@ -118,7 +147,6 @@ fun NavHost(
  * @param exitTransition callback to define exit transitions for forward navigation
  * @param popEnterTransition callback to define enter transitions for pop (back) navigation
  * @param popExitTransition callback to define exit transitions for pop (back) navigation
- * @param preferNativeSlideAnimation whether pure slide and slide + fade transitions run on Native
  *
  * @see NavGraphBuilder
  * @see NavHostController.createGraph
@@ -135,8 +163,33 @@ fun NavHost(
     popEnterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
         enterTransition,
     popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        exitTransition
+) = NavHost(
+    navController = navController,
+    graph = graph,
+    modifier = modifier,
+    enterTransition = enterTransition,
+    exitTransition = exitTransition,
+    popEnterTransition = popEnterTransition,
+    popExitTransition = popExitTransition,
+    preferNativeSlideAnimation = true
+)
+
+/** Variant accepting a pre-built graph and an explicit Native slide switch. */
+@Composable
+fun NavHost(
+    navController: NavHostController,
+    graph: NavGraph,
+    modifier: Modifier = Modifier,
+    enterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        { fadeIn() },
+    exitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        { fadeOut() },
+    popEnterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        enterTransition,
+    popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
         exitTransition,
-    preferNativeSlideAnimation: Boolean = true
+    preferNativeSlideAnimation: Boolean
 ) {
     // Set the graph on the controller
     navController.graph = graph
@@ -308,7 +361,6 @@ fun NavHost(
  * @param exitTransition callback to define exit transitions for forward navigation
  * @param popEnterTransition callback to define enter transitions for pop (back) navigation
  * @param popExitTransition callback to define exit transitions for pop (back) navigation
- * @param preferNativeSlideAnimation whether pure slide and slide + fade transitions run on Native
  * @param builder the builder used to construct the graph
  * @return the [NavHostController] created for this NavHost
  */
@@ -325,7 +377,34 @@ fun NavHost(
         enterTransition,
     popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
         exitTransition,
-    preferNativeSlideAnimation: Boolean = true,
+    builder: NavGraphBuilder.() -> Unit
+): NavHostController = NavHost(
+    startDestination = startDestination,
+    modifier = modifier,
+    route = route,
+    enterTransition = enterTransition,
+    exitTransition = exitTransition,
+    popEnterTransition = popEnterTransition,
+    popExitTransition = popExitTransition,
+    preferNativeSlideAnimation = true,
+    builder = builder
+)
+
+/** Convenience variant with an explicit Native slide switch. */
+@Composable
+fun NavHost(
+    startDestination: String,
+    modifier: Modifier = Modifier,
+    route: String? = null,
+    enterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        { fadeIn() },
+    exitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        { fadeOut() },
+    popEnterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        enterTransition,
+    popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        exitTransition,
+    preferNativeSlideAnimation: Boolean,
     builder: NavGraphBuilder.() -> Unit
 ): NavHostController {
 val navController = rememberNavController()

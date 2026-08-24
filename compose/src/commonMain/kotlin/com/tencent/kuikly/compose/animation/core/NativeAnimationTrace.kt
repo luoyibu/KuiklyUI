@@ -8,11 +8,10 @@
 package com.tencent.kuikly.compose.animation.core
 
 /**
- * Temporary diagnostics for the Native animation bring-up. Keep every message on one line so a
- * group can be reconstructed by filtering `[NativeAnimation]` from the platform console.
+ * Opt-in diagnostics for Native animation development.
  */
 internal object NativeAnimationTrace {
-    var enabled: Boolean = true
+    var enabled: Boolean = false
 
     fun log(message: () -> String) {
         if (enabled) {

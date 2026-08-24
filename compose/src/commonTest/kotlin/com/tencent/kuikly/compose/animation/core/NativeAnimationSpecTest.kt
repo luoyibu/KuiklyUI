@@ -79,7 +79,7 @@ class NativeAnimationSpecTest {
     }
 
     @Test
-    fun springAndSnapProduceVersionedDescriptors() {
+    fun springFallsBackAndSnapProducesVersionedDescriptor() {
         val spring = spring<Float>(
             dampingRatio = 0.7f,
             stiffness = 420f
@@ -87,8 +87,7 @@ class NativeAnimationSpecTest {
         val snap = snap<Float>(delayMillis = 17)
             .preferNative().toNativeAnimationOrNull(0f, 1f, 0f, Float.VectorConverter)
 
-        assertNotNull(spring)
-        assertTrue(spring.toString().contains("v2,spring,420.0,0.7,0.0,"))
+        assertNull(spring)
         assertNotNull(snap)
         assertTrue(snap.toString().endsWith("v2,snap"))
     }

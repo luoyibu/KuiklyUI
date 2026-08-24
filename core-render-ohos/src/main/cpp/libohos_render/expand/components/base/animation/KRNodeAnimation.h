@@ -298,12 +298,6 @@ class KRNodeAnimation : public IKRNodeAnimation {
         if (springHandler != nullptr) {
             springHandler->damping = damping;
             springHandler->velocity = velocity;
-            if (nativeV2.kind == "spring" && nativeV2.values.size() >= 3) {
-                springHandler->stiffness = nativeV2.values[0];
-                springHandler->damping = nativeV2.values[1];
-                springHandler->velocity = nativeV2.values[2];
-                springHandler->useNativeV2Spring = true;
-            }
         } else {
             std::shared_ptr<KRNodePlainAnimationHandler> plainHandler =
                 std::dynamic_pointer_cast<KRNodePlainAnimationHandler>(handler_);

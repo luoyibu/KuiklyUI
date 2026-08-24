@@ -44,7 +44,7 @@ Native 路径不向 Compose 提供逐帧屏幕值或速度。如果业务需要�
 
 - 新动画尽量从 Native View 当前显示状态继续，避免先跳到逻辑终值再重新开始。
 - 旧动画协程按取消语义结束。
-- 不同属性的动画可以并存；例如新的 alpha 动画不会取消同一 View 上的 transform 动画。
+- 同一 View 上的新 Native 动画会替换旧 Native 动画；首期不承诺不同 descriptor 的属性级并行。
 - 延迟中的 Snap 会被同属性的新动画替换，不会在旧 deadline 再写入旧目标。
 
 `AnimatedVisibility` 退出期间会保留节点直到 Native 完成回调。快速
@@ -82,6 +82,7 @@ fun <T> FiniteAnimationSpec<T>.preferNative(): FiniteAnimationSpec<T>
 
 - 每个活跃动画的 spec 都调用了 `preferNative()`。
 - 每个 spec 类型都受支持。
+- 所有活跃属性必须使用相同的动画 descriptor（曲线、duration 和 delay 一致）。
 - 每个动画值最终只驱动受支持的 Native 视觉属性。
 - 动画组中没有当前 Native 路径暂不支持的参与者。
 
@@ -197,7 +198,7 @@ capability/version 握手，不建议新 Compose/Core 搭配不包含 Native 动
 | `LinearEasing` | 支持 | 映射为线性 cubic |
 | `CubicBezierEasing` | 支持 | 下发四个贝塞尔控制点 |
 | Compose 内置 cubic easing | 支持 | 例如 `FastOutSlowInEasing` |
-| `SpringSpec` | 支持 | 下发 stiffness 和 dampingRatio |
+| `SpringSpec` | 当前未支持 | 首期继续使用 Compose 插帧 |
 | `SnapSpec` | 支持 | 支持 delay |
 | 自定义 lambda `Easing` | 当前未支持 | 无法可靠序列化到 Native |
 | keyframes | 当前未支持 | 回退 Compose |
@@ -206,8 +207,8 @@ capability/version 握手，不建议新 Compose/Core 搭配不包含 Native 动
 | infinite repeat | 当前未支持 | 回退 Compose |
 | decay/fling | 不适用 | 依赖手势速度和逐帧位置 |
 
-Native spring 首期要求逻辑初速度为零。动画被同属性的新 Native 动画中断时，平台可以从
-Native View 当前显示状态继续，以保证视觉连续性；但不向 Compose 提供逐帧屏幕值或速度。
+Spring 的停止阈值和中断速度在三端并不完全一致。首期不改造现有 Render 的 spring
+实现，因此即使调用 `preferNative()` 也会整体回退到 Compose 插帧。
 
 ## 可扩展属性的边界
 
@@ -823,7 +824,7 @@ Native slide 是 graphics transform，只改变 View 的视觉位置，不改变
 
 ## 调试和验证
 
-开发阶段可以在三端控制台过滤：
+框架开发阶段可以临时将 `NativeAnimationTrace.enabled` 设为 `true`，再在控制台过滤：
 
 ```text
 [NativeAnimation]

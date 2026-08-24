@@ -111,145 +111,20 @@ fun ModalBottomSheet(
     animationDurationMillis: Int = 250,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    var visibleState = remember { MutableTransitionState(false) }
-    val scope = rememberCoroutineScope()
-
-    // 拖拽相关的状态
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    var sheetHeight by remember { mutableFloatStateOf(0f) }
-    var animationJob by remember { mutableStateOf<Job?>(null) }
-
-    // 优化：让 scrim 的透明度跟随 visibleState.targetState 同步变化
-    // 这样 scrim 会在退出动画开始时就开始淡出，而不是等到动画完成
-    // 使用 targetState 而不是 currentState，这样当 targetState 变为 false 时，scrim 立即开始淡出
-    val scrimAlpha by animateFloatAsState(
-        targetValue = if (visibleState.targetState) 1f else 0f,
-        animationSpec = tween(durationMillis = animationDurationMillis), // 与 slideOutVertically 的默认动画时长保持一致
-        label = "scrimAlpha"
+    ModalBottomSheet(
+        visible = visible,
+        onDismissRequest = onDismissRequest,
+        preferNativeAnimation = true,
+        modifier = modifier,
+        containerColor = containerColor,
+        contentColor = contentColor,
+        tonalElevation = tonalElevation,
+        scrimColor = scrimColor,
+        dismissOnDrag = dismissOnDrag,
+        dismissThreshold = dismissThreshold,
+        animationDurationMillis = animationDurationMillis,
+        content = content
     )
-
-    // 根据动画透明度动态计算 scrim 颜色
-    val animatedScrimColor = remember(scrimColor, scrimAlpha) {
-        scrimColor.copy(alpha = scrimColor.alpha * scrimAlpha)
-    }
-    val slideAnimationSpec = remember(animationDurationMillis) {
-        tween<IntOffset>(durationMillis = animationDurationMillis).preferNative()
-    }
-
-    LaunchedEffect(visible) {
-        if (visible && !visibleState.currentState) {
-            // 启动动画
-            visibleState.targetState = true
-            dragOffset = 0f
-        } else if (!visible && visibleState.currentState) {
-            visibleState.targetState = false
-            dragOffset = 0f
-        }
-    }
-
-    LaunchedEffect(visibleState.isIdle, visibleState.currentState, visibleState.targetState) {
-        // 动画播完，调用onDismissRequest;
-        if (visibleState.isIdle && !visibleState.currentState) {
-            onDismissRequest.invoke()
-        }
-    }
-
-    if (visible || visibleState.currentState) {
-        Dialog(
-            onDismissRequest = {
-                visibleState.targetState = false
-            },
-            properties = KuiklyDialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true,
-                usePlatformDefaultWidth = false,
-                scrimColor = animatedScrimColor, // 使用动态计算的 scrim 颜色
-                contentAlignment = Alignment.BottomCenter
-            )
-        ) {
-            AnimatedVisibility(
-                visibleState = visibleState,
-                enter = slideInVertically(
-                    animationSpec = slideAnimationSpec,
-                    initialOffsetY = { it },
-                ),
-                exit = slideOutVertically(
-                    animationSpec = slideAnimationSpec,
-                    targetOffsetY = { it },
-                ),
-            ) {
-                Surface(
-                    modifier = modifier
-                        .fillMaxWidth()
-                        .onSizeChanged { size ->
-                            sheetHeight = size.height.toFloat()
-                        }
-                        .then(
-                            if (dismissOnDrag) {
-                                Modifier
-                                    .offset { IntOffset(0, dragOffset.roundToInt()) }
-                                    .pointerInput(Unit) {
-                                        detectVerticalDragGestures(
-                                            onDragStart = {
-                                                animationJob?.cancel()
-                                            },
-                                            onDragEnd = {
-                                                // 如果拖拽超过阈值，则关闭
-                                                // pointerInputScope 扩展了 Density，可以直接使用 toPx()
-                                                val threshold = if (sheetHeight > 0f) {
-                                                    sheetHeight * dismissThreshold
-                                                } else {
-                                                    100.dp.toPx()
-                                                }
-
-                                                if (dragOffset > threshold) {
-                                                    scope.launch {
-                                                        visibleState.targetState = false
-                                                    }
-                                                } else {
-                                                    // 否则回弹
-                                                    animationJob = scope.launch {
-                                                        animate(
-                                                            initialValue = dragOffset,
-                                                            targetValue = 0f,
-                                                            animationSpec = tween(durationMillis = animationDurationMillis)
-                                                        ) { value, _ ->
-                                                            dragOffset = value
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            onDragCancel = {
-                                                animationJob = scope.launch {
-                                                    animate(
-                                                        initialValue = dragOffset,
-                                                        targetValue = 0f,
-                                                        animationSpec = tween(durationMillis = animationDurationMillis)
-                                                    ) { value, _ ->
-                                                        dragOffset = value
-                                                    }
-                                                }
-                                            },
-                                            onVerticalDrag = { _, dragAmount ->
-                                                // 更新拖拽偏移量，允许向上回弹但不能小于0
-                                                val newOffset = dragOffset + dragAmount
-                                                dragOffset = newOffset.coerceAtLeast(0f)
-                                            }
-                                        )
-                                    }
-                            } else {
-                                Modifier
-                            }
-                        ),
-                    color = containerColor,
-                    contentColor = contentColor,
-                    tonalElevation = tonalElevation
-                ) {
-                    Column(content = content)
-                }
-            }
-        }
-    }
 }
 
 /**

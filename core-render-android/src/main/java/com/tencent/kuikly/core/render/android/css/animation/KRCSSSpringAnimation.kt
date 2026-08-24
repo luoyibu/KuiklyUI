@@ -125,7 +125,6 @@ abstract class KRCSSSpringAnimationHandler : KRCSSAnimationHandler() {
 
     var damping = 0f
     var velocity = 0f
-    var stiffness = SpringForce.STIFFNESS_MEDIUM
 
     private var springAnimation: SpringAnimation? = null
     private var uiHandler: Handler? = null
@@ -136,8 +135,6 @@ abstract class KRCSSSpringAnimationHandler : KRCSSAnimationHandler() {
                 setStartVelocity(velocity)
                 spring.dampingRatio =
                     if (damping != 0f) damping else SpringForce.DAMPING_RATIO_NO_BOUNCY
-                spring.stiffness =
-                    if (stiffness > 0f) stiffness else SpringForce.STIFFNESS_MEDIUM
                 minimumVisibleChange = DynamicAnimation.MIN_VISIBLE_CHANGE_ALPHA
                 addEndListener { _, canceled, _, _ ->
                     if (!canceled) {

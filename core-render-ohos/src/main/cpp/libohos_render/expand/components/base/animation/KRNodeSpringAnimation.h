@@ -16,10 +16,8 @@
 #ifndef CORE_RENDER_OHOS_KRNODESPRINGANIMATION_H
 #define CORE_RENDER_OHOS_KRNODESPRINGANIMATION_H
 
-#include <cmath>
 #include "libohos_render/expand/components/base/animation/IKRNodeAnimation.h"
 #include "libohos_render/expand/components/base/animation/KRNodeAnimationHandler.h"
-#include "libohos_render/expand/components/base/animation/KRNodeNativeAnimationV2.h"
 #include "libohos_render/utils/KRRenderLoger.h"
 
 /**
@@ -29,15 +27,15 @@ class KRNodeSpringAnimationHandler : public KRNodeAnimationHandler {
  public:
     float damping = 0;
     float velocity = 0;
-    float stiffness = 1500;
-    bool useNativeV2Spring = false;
     ArkUI_CurveHandle curveHandle = nullptr;
 
     std::shared_ptr<KRAnimateOption> buildAnimateOption() override {
         auto option = KRNodeAnimationHandler::buildAnimateOption();
-        auto curve = useNativeV2Spring
-            ? KRCreateNativeInterpolatingSpringCurve(velocity, stiffness, damping)
-            : OH_ArkUI_Curve_CreateSpringCurve(velocity, 0.2, 1.2, damping);
+        /**
+         * mass 0.2 调参对齐iOS 、Android
+         * stiffness 1.2 调参对齐iOS 、Android
+         */
+        auto curve = OH_ArkUI_Curve_CreateSpringCurve(velocity, 0.2, 1.2, damping);
         option->SetSpringCurve(curve);
         SetCurHandle(curve);
         return option;

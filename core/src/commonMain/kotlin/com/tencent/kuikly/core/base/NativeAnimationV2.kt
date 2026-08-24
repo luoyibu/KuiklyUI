@@ -34,19 +34,6 @@ fun Animation.Companion.nativeCubic(
     .delay(delayS)
     .withNativeV2Payload("v2,cubic,$x1,$y1,$x2,$y2")
 
-fun Animation.Companion.nativeSpring(
-    durationS: Float,
-    delayS: Float,
-    stiffness: Float,
-    dampingRatio: Float,
-    initialVelocity: Float,
-    key: String
-): Animation = Animation.springLinear(durationS, dampingRatio, initialVelocity, key)
-    .delay(delayS)
-    .withNativeV2Payload(
-        "v2,spring,$stiffness,$dampingRatio,$initialVelocity,${durationS * 1000f}"
-    )
-
 fun Animation.Companion.nativeSnap(delayS: Float, key: String): Animation =
     Animation.linear(0f, key)
         .delay(delayS)
@@ -60,4 +47,3 @@ fun Animation.nativeCallbackTimeoutMillis(): Int =
 private fun Animation.withNativeV2Payload(payload: String): Animation = apply {
     nativeV2Payload = payload
 }
-

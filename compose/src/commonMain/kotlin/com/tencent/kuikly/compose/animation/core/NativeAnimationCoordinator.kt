@@ -72,8 +72,7 @@ internal class NativeAnimationCoordinator private constructor(
         val continuation: CancellableContinuation<Boolean>?,
         val transitionKey: Any? = null,
         val operations: MutableList<Operation> = mutableListOf(),
-        val propertyAnimations: MutableMap<String, Animation> = mutableMapOf(),
-        val propertyAnimationSignatures: MutableMap<String, String> = mutableMapOf(),
+        val animatedProperties: MutableSet<String> = mutableSetOf(),
         val transitionCompletions: MutableList<(TransitionCompletion) -> Unit> = mutableListOf(),
         val targetStateCommits: MutableList<() -> Unit> = mutableListOf(),
         val genericEndpoints: MutableList<Endpoint> = mutableListOf(),
@@ -185,27 +184,17 @@ internal class NativeAnimationCoordinator private constructor(
                 }
                 return false
             }
-            propertyHint == null && pending.descriptorSignature != signature -> {
+            pending.descriptorSignature != signature -> {
                 pending.unsupported = true
                 NativeAnimationTrace.log {
-                    "reject group=${pending.id} reason=mixed-descriptor-without-property"
+                    "reject group=${pending.id} reason=mixed-descriptor"
                 }
                 return false
             }
             else -> pending
         }
         if (propertyHint != null) {
-            val existingSignature = group.propertyAnimationSignatures[propertyHint]
-            if (existingSignature != null && existingSignature != signature) {
-                group.unsupported = true
-                NativeAnimationTrace.log {
-                    "reject group=${group.id} property=$propertyHint reason=mixed-descriptor"
-                }
-                return false
-            }
-            animation.key = group.animation.key
-            group.propertyAnimations[propertyHint] = animation
-            group.propertyAnimationSignatures[propertyHint] = signature
+            group.animatedProperties += propertyHint
             group.propertyEndpoints.getOrPut(propertyHint) { mutableListOf() }
                 .add(Endpoint(initialValue, targetValue))
         } else {
@@ -294,8 +283,8 @@ internal class NativeAnimationCoordinator private constructor(
             }
         } else if (
             group.transitionKey != null &&
-            group.propertyAnimations.isNotEmpty() &&
-            propertyKey !in group.propertyAnimations
+            group.animatedProperties.isNotEmpty() &&
+            propertyKey !in group.animatedProperties
         ) {
             NativeAnimationTrace.log {
                 "pass static property group=${group.id} view=${view.nativeRef} " +
@@ -399,7 +388,7 @@ internal class NativeAnimationCoordinator private constructor(
         // The following target-state pass exists only to collect supported visual properties.
         // Releasing its frame writes would expose transient page/sibling layout from this extra
         // pass (for example a LazyColumn section title briefly moving during AnimatedVisibility).
-        if (group.propertyAnimations.isNotEmpty()) {
+        if (group.animatedProperties.isNotEmpty()) {
             NativeAnimationTrace.log {
                 "consume frame group=${group.id} view=${view.nativeRef} " +
                     "reason=visual-transition-target-pass"
@@ -474,11 +463,9 @@ internal class NativeAnimationCoordinator private constructor(
                 "participants=${group.transitionCompletions.size}"
         }
         val operationsByView = group.operations.groupBy { it.view }
-        val replacingProperties = group.operations.mapTo(mutableSetOf()) {
-            it.view.nativeRef to it.propertyKey
-        }
+        val replacingViews = group.operations.mapTo(mutableSetOf()) { it.view.nativeRef }
         runningGroups.values.filter { running ->
-            running.operations.any { (it.view.nativeRef to it.propertyKey) in replacingProperties }
+            running.operations.any { it.view.nativeRef in replacingViews }
         }.toList().forEach { finish(it, false) }
         operationsByView.forEach { (view, operations) ->
             val declarativeView = view as DeclarativeBaseView<*, *>
@@ -493,31 +480,24 @@ internal class NativeAnimationCoordinator private constructor(
                     }
                 }
             }
-            val operationBatches = operations.groupBy { operation ->
-                group.propertyAnimations[operation.propertyKey] ?: group.animation
-            }
-            group.pendingCallbacksByView[view.nativeRef] = operationBatches.size
+            group.pendingCallbacksByView[view.nativeRef] =
+                operations.map { it.propertyKey }.distinct().size
             NativeAnimationTrace.log {
-                "enqueue group=${group.id} view=${view.nativeRef} batches=${operationBatches.size}"
+                "enqueue group=${group.id} view=${view.nativeRef}"
             }
             declarativeView.registerPersistentNativeAnimationCompletion(
                 group.animation.key
             ) { finished: Boolean ->
                 onViewAnimationFinished(group, view.nativeRef, finished)
             }
-            operationBatches.forEach { (animation, batch) ->
-                animation.key = group.animation.key
-                view.syncProp(Attr.StyleConst.ANIMATION, animation.toString())
-                batch.forEach { operation ->
-                    view.syncProp(operation.propertyKey, operation.targetValue)
-                }
+            view.syncProp(Attr.StyleConst.ANIMATION, group.animation.toString())
+            operations.forEach { operation ->
+                view.syncProp(operation.propertyKey, operation.targetValue)
             }
         }
         activeGroup = null
         runningGroups[group.id] = group
-        val timeoutMillis = (
-            group.propertyAnimations.values + group.animation
-            ).maxOf { it.nativeCallbackTimeoutMillis() }
+        val timeoutMillis = group.animation.nativeCallbackTimeoutMillis()
         group.timeoutRef = pagerScope.setTimeout(timeoutMillis) {
             if (runningGroups[group.id] === group) {
                 NativeAnimationTrace.log {

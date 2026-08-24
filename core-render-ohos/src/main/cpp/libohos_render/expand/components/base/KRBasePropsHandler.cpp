@@ -176,10 +176,8 @@ void KRBasePropsHandler::PrepareFirstAnimationProperty(const std::string &prop_k
         return;
     }
     if (prop_key == kOpacity) {
-        KR_LOG_INFO << "[NativeAnimation][OHOS] materialize default opacity";
         SetPropWithoutAnimation(prop_key, NewKRRenderValue(1.0), nullptr);
     } else if (prop_key == kTransform) {
-        KR_LOG_INFO << "[NativeAnimation][OHOS] materialize default transform";
         SetPropWithoutAnimation(
             prop_key,
             NewKRRenderValue("0.0|1.0 1.0|0.0 0.0|0.5 0.5|0.0 0.0|0.0 0.0"),

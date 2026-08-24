@@ -17,7 +17,7 @@ package com.tencent.kuikly.core.base
 
 import com.tencent.kuikly.core.collection.fastHashMapOf
 
-private const val ANIMATION_COMPLETION_MAP_KEY = "animateCompletionMapKey"
+private const val ANIMATION_COMPLETION_MAP_KEY = "composeNativeAnimationCompletionMapKey"
 
 private data class NativeAnimationCompletionHandler(
     val oneShot: Boolean,
@@ -74,4 +74,3 @@ internal fun DeclarativeBaseView<*, *>.stageNativeAnimationFrameIfNeeded(): Bool
         getPager().getValueForKey(NativeAnimationBridge.PAGER_CACHE_KEY)
             as? NativeAnimationBridge
         )?.stageFrame(this) == true
-

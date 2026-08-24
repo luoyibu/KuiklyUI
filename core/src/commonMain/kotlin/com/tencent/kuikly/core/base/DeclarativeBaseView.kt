@@ -16,6 +16,7 @@
 package com.tencent.kuikly.core.base
 
 import com.tencent.kuikly.core.base.event.Event
+import com.tencent.kuikly.core.collection.fastHashMapOf
 import com.tencent.kuikly.core.exception.throwRuntimeError
 import com.tencent.kuikly.core.layout.Frame
 import com.tencent.kuikly.core.layout.MutableFrame
@@ -182,7 +183,13 @@ abstract class DeclarativeBaseView<A : Attr, E : Event> : AbstractBaseView<A, E>
         val taskKey = "animationAttrTask_" + animation.hashCode()
         completion?.also {
             animation.key = taskKey
-            registerNativeAnimationCompletion(taskKey, it)
+            val animateCompletionMap = getAnimateCompletionMap()
+            animateCompletionMap[taskKey] = it
+            getViewEvent().listenInternalAnimationCompletion { params ->
+                animateCompletionMap[params.animationKey]?.also {
+                    it.invoke(params.finish.toBoolean())
+                }
+            }
         }
         getViewAttr().apply {
             setPropByFrameTask(taskKey) {
@@ -199,6 +206,16 @@ abstract class DeclarativeBaseView<A : Attr, E : Event> : AbstractBaseView<A, E>
                 setProp(Attr.StyleConst.ANIMATION, resumeAnimation)
             }
         }
+    }
+
+    private fun getAnimateCompletionMap(): MutableMap<String,  (Boolean)->Unit> {
+        val animateCompletionMapKey = "animateCompletionMapKey"
+        var animateCompletionMap = extProps[animateCompletionMapKey] as? MutableMap<String,  (Boolean)->Unit>
+        if (animateCompletionMap == null) {
+            animateCompletionMap = fastHashMapOf<String,  ((Boolean)->Unit)>()
+            extProps[animateCompletionMapKey] = animateCompletionMap
+        }
+        return animateCompletionMap
     }
 
     open fun isRenderView(): Boolean {

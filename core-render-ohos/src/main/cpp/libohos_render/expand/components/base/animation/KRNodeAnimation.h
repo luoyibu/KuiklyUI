@@ -29,6 +29,9 @@ class KRNodeAnimation : public IKRNodeAnimation {
     // 正在执行动画的数量。0代表动画结束
     int animationRunningCount = 0;
 
+    // A View animation is reported as one batch. Any cancelled operation cancels the batch.
+    bool allOperationsFinished = true;
+
     // 动画作用的view引用
     std::weak_ptr<IKRRenderViewExport> weakView;
 

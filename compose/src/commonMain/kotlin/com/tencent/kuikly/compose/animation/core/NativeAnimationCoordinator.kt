@@ -84,7 +84,7 @@ internal class NativeAnimationCoordinator private constructor(
         var preparingInitialState: Boolean = transitionKey != null,
         var committed: Boolean = false,
         var timeoutRef: String? = null,
-        val pendingCallbacksByView: MutableMap<Int, Int> = mutableMapOf()
+        val pendingViews: MutableSet<Int> = mutableSetOf()
     )
 
     private var nextGroupId = 1L
@@ -480,8 +480,11 @@ internal class NativeAnimationCoordinator private constructor(
                     }
                 }
             }
-            group.pendingCallbacksByView[view.nativeRef] =
-                operations.map { it.propertyKey }.distinct().size
+            // Android and HarmonyOS report one completion for the whole View batch. iOS reports
+            // once per property, but every property in this group uses the same descriptor and
+            // therefore finishes on the same timeline. Treat the first callback as the View's
+            // batch completion so all three Render implementations share one contract.
+            group.pendingViews += view.nativeRef
             NativeAnimationTrace.log {
                 "enqueue group=${group.id} view=${view.nativeRef}"
             }
@@ -501,7 +504,7 @@ internal class NativeAnimationCoordinator private constructor(
         group.timeoutRef = pagerScope.setTimeout(timeoutMillis) {
             if (runningGroups[group.id] === group) {
                 NativeAnimationTrace.log {
-                    "timeout group=${group.id} pending=${group.pendingCallbacksByView}"
+                    "timeout group=${group.id} pending=${group.pendingViews}"
                 }
                 snapCommittedGroupToLogicalTarget(group)
                 finish(
@@ -526,7 +529,7 @@ internal class NativeAnimationCoordinator private constructor(
         }
         NativeAnimationTrace.log {
             "callback group=${group.id} view=$viewRef finished=$finished " +
-                "pending=${group.pendingCallbacksByView}"
+                "pending=${group.pendingViews}"
         }
         if (!finished) {
             snapCommittedGroupToLogicalTarget(group)
@@ -537,13 +540,8 @@ internal class NativeAnimationCoordinator private constructor(
             )
             return
         }
-        val remaining = (group.pendingCallbacksByView[viewRef] ?: return) - 1
-        if (remaining <= 0) {
-            group.pendingCallbacksByView.remove(viewRef)
-        } else {
-            group.pendingCallbacksByView[viewRef] = remaining
-        }
-        if (group.pendingCallbacksByView.isEmpty()) finish(group, true)
+        if (!group.pendingViews.remove(viewRef)) return
+        if (group.pendingViews.isEmpty()) finish(group, true)
     }
 
     private fun finish(
@@ -555,7 +553,7 @@ internal class NativeAnimationCoordinator private constructor(
         NativeAnimationTrace.log {
             "finish group=${group.id} result=$result transition=$transitionCompletion " +
                 "active=${activeGroup === group} " +
-                "pending=${group.pendingCallbacksByView}"
+                "pending=${group.pendingViews}"
         }
         if (activeGroup === group) activeGroup = null
         runningGroups.remove(group.id)

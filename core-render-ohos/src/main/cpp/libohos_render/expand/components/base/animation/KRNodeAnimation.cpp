@@ -31,6 +31,7 @@ void KRNodeAnimation::commitAnimationOperations() {
     }
 
     std::weak_ptr<IKRNodeAnimation> weakSelf = this->shared_from_this();
+    allOperationsFinished = true;
     operationCallback_ = [weakSelf](bool finished, std::string propKey) {
         auto selfRef = weakSelf.lock();
         if (selfRef == nullptr) {
@@ -40,9 +41,10 @@ void KRNodeAnimation::commitAnimationOperations() {
         if (self == nullptr) {
             return;
         }
+        self->allOperationsFinished = self->allOperationsFinished && finished;
         self->animationRunningCount--;
         if (self->animationRunningCount == 0 && self->onAnimationEndCallback) {
-            self->onAnimationEndCallback(selfRef, finished, propKey, self->animationKey);
+            self->onAnimationEndCallback(selfRef, self->allOperationsFinished, propKey, self->animationKey);
         }
     };
 

@@ -1961,7 +1961,9 @@ typedef NS_OPTIONS(NSUInteger, CSSAnimationType) {
         UIViewAnimationCurve animationCurve = self->_viewAnimationCurve;
             [animations enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
                 dispatch_block_t block = obj;
-                [UIView setAnimationCurve:animationCurve]; // 设置动画曲线
+                if (!self.isNativeV2) {
+                    [UIView setAnimationCurve:animationCurve]; // 设置动画曲线
+                }
                 block();
             }];
     } completion:^(BOOL finished) {
@@ -2126,8 +2128,20 @@ typedef NS_OPTIONS(NSUInteger, CSSAnimationType) {
     
     // Calculate rotation difference for animation decision
     CGFloat rotationDelta = oldTransform ? fabs(_rotateAngle - oldTransform.rotateAngle) : 0;
-    
-    if (animation.isNativeV2 && oldTransform) {
+
+    BOOL isPureTranslation =
+        oldTransform &&
+        fabs(_rotateAngle - oldTransform->_rotateAngle) < 0.0001 &&
+        fabs(_rotateXAngle - oldTransform->_rotateXAngle) < 0.0001 &&
+        fabs(_rotateYAngle - oldTransform->_rotateYAngle) < 0.0001 &&
+        fabs(_scaleX - oldTransform->_scaleX) < 0.0001 &&
+        fabs(_scaleY - oldTransform->_scaleY) < 0.0001 &&
+        fabs(_anchorX - oldTransform->_anchorX) < 0.0001 &&
+        fabs(_anchorY - oldTransform->_anchorY) < 0.0001 &&
+        fabs(_skewX - oldTransform->_skewX) < 0.0001 &&
+        fabs(_skewY - oldTransform->_skewY) < 0.0001;
+
+    if (animation.isNativeV2 && oldTransform && !isPureTranslation) {
         [self applyNativeV2TransformToView:view
                                 animation:animation
                              oldTransform:oldTransform
@@ -2155,19 +2169,54 @@ typedef NS_OPTIONS(NSUInteger, CSSAnimationType) {
                           animation:(CSSAnimation *)animation
                        oldTransform:(CSSTransform *)oldTransform
                        targetAnchor:(CGPoint)anchor {
+    CALayer *presentationLayer = view.layer.presentationLayer;
+    CSSTransform *keyframeStart = oldTransform;
+    BOOL canResolvePresentationStart =
+        presentationLayer != nil &&
+        view.layer.animationKeys.count > 0 &&
+        CATransform3DIsAffine(presentationLayer.transform) &&
+        fabs(oldTransform->_rotateXAngle) < 0.0001 &&
+        fabs(oldTransform->_rotateYAngle) < 0.0001 &&
+        fabs(oldTransform->_skewX) < 0.0001 &&
+        fabs(oldTransform->_skewY) < 0.0001;
+    if (canResolvePresentationStart) {
+        CGAffineTransform affine = CATransform3DGetAffineTransform(presentationLayer.transform);
+        CGFloat scaleX = hypot(affine.a, affine.b);
+        if (scaleX >= 0.00001) {
+            CGFloat rotation = atan2(affine.b, affine.a) * 180.0 / M_PI;
+            while (rotation - oldTransform->_rotateAngle > 180.0) rotation -= 360.0;
+            while (rotation - oldTransform->_rotateAngle < -180.0) rotation += 360.0;
+
+            keyframeStart = [[CSSTransform alloc] init];
+            keyframeStart->_rotateAngle = rotation;
+            keyframeStart->_scaleX = scaleX;
+            keyframeStart->_scaleY =
+                (affine.a * affine.d - affine.b * affine.c) / scaleX;
+            keyframeStart->_translatePercentageX = CGRectGetWidth(view.bounds) == 0
+                ? oldTransform->_translatePercentageX
+                : affine.tx / CGRectGetWidth(view.bounds);
+            keyframeStart->_translatePercentageY = CGRectGetHeight(view.bounds) == 0
+                ? oldTransform->_translatePercentageY
+                : affine.ty / CGRectGetHeight(view.bounds);
+            keyframeStart->_anchorX = oldTransform->_anchorX;
+            keyframeStart->_anchorY = oldTransform->_anchorY;
+        }
+    }
     [animation addKeyframeWithRelativeStartTime:0 relativeDuration:0 animations:^{
         [view hr_setAnchorPointAndKeepFrame:anchor];
     }];
     NSUInteger samples = animation.nativeV2TransformSampleCount;
     for (NSUInteger index = 0; index <= samples; index++) {
         CGFloat timeFraction = index / (CGFloat)samples;
-        CGFloat componentProgress =
-            [animation nativeV2ProgressForFraction:timeFraction];
+        // The enclosing UIViewPropertyAnimator already applies the V2 timing parameters to the
+        // timeline. Keep scalar transform samples linear; applying the cubic here as well makes
+        // the effective curve cubic(cubic(t)) and rushes the transform towards its target.
+        CGFloat componentProgress = timeFraction;
         [animation addKeyframeWithRelativeStartTime:timeFraction
                                    relativeDuration:index == samples ? 0 : 1.0 / samples
                                          animations:^{
             KRTransformInfo *transform = [self generateTransformForFrame:view.bounds
-                                                       relativeTransform:oldTransform
+                                                       relativeTransform:keyframeStart
                                                            interpolation:componentProgress];
             [transform applyTransformToView:view];
         }];

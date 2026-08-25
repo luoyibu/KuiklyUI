@@ -128,6 +128,7 @@ class Animatable<T, V : AnimationVector>(
         private set
 
     private val mutatorMutex = MutatorMutex()
+    private var nativeAnimationReplacementRequested = false
     internal val defaultSpringSpec: SpringSpec<T> =
         SpringSpec(visibilityThreshold = visibilityThreshold)
 
@@ -270,14 +271,17 @@ class Animatable<T, V : AnimationVector>(
         NativeAnimationTrace.log {
             "animatable run from=$initialValue to=$nativeTargetValue descriptor=$nativeAnimation"
         }
-        return mutatorMutex.mutate {
+        return mutateWithNativeReplacement {
             try {
                 targetValue = nativeTargetValue
                 isRunning = true
                 val committed = coordinator.animate(
                     nativeAnimation,
                     initialValue,
-                    nativeTargetValue
+                    nativeTargetValue,
+                    shouldPreservePresentationOnCancellation = {
+                        nativeAnimationReplacementRequested
+                    }
                 ) {
                     // Native mode exposes the logical target immediately. The native presentation
                     // value is intentionally not reflected back into this State.
@@ -290,7 +294,7 @@ class Animatable<T, V : AnimationVector>(
                     internalState.value = initialValue
                     targetValue = initialValue
                     endAnimation()
-                    return@mutate null
+                    return@mutateWithNativeReplacement null
                 }
                 val endState = internalState.copy()
                 NativeAnimationTrace.log {
@@ -307,6 +311,18 @@ class Animatable<T, V : AnimationVector>(
                 endAnimation()
                 throw e
             }
+        }
+    }
+
+    private suspend fun <R> mutateWithNativeReplacement(block: suspend () -> R): R {
+        nativeAnimationReplacementRequested = true
+        return try {
+            mutatorMutex.mutate {
+                nativeAnimationReplacementRequested = false
+                block()
+            }
+        } finally {
+            nativeAnimationReplacementRequested = false
         }
     }
 

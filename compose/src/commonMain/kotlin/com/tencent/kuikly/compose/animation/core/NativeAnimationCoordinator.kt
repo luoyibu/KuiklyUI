@@ -40,6 +40,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.math.abs
 import kotlin.coroutines.resume
 
+internal fun shouldPreserveNativePresentationOnCancellation(
+    replacementRequested: Boolean,
+    delayedNativeSnap: Boolean
+): Boolean = replacementRequested || delayedNativeSnap
+
 /**
  * A page-local transaction coordinator. It stages the target-state property writes produced by
  * one Compose render pass and only exposes them to Native Render after the complete batch has
@@ -97,6 +102,7 @@ internal class NativeAnimationCoordinator private constructor(
         animation: Animation,
         initialValue: Any?,
         targetValue: Any?,
+        shouldPreservePresentationOnCancellation: () -> Boolean,
         targetStateCommit: () -> Unit
     ): Boolean =
         suspendCancellableCoroutine { continuation ->
@@ -126,10 +132,16 @@ internal class NativeAnimationCoordinator private constructor(
                     rollback(group)
                     activeGroup = null
                 } else if (runningGroups[group.id] === group) {
-                    if (group.isDelayedNativeSnap()) {
+                    if (
+                        shouldPreserveNativePresentationOnCancellation(
+                            replacementRequested =
+                                shouldPreservePresentationOnCancellation(),
+                            delayedNativeSnap = group.isDelayedNativeSnap()
+                        )
+                    ) {
                         NativeAnimationTrace.log {
                             "cancel running group=${group.id} " +
-                                "action=preserve-pending-snap-for-replacement"
+                                "action=preserve-presentation-for-replacement"
                         }
                     } else {
                         NativeAnimationTrace.log {

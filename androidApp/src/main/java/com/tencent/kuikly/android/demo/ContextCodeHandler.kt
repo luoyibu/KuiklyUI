@@ -24,6 +24,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.tencent.kuikly.android.demo.module.KRBridgeModule
+import com.tencent.kuikly.android.demo.module.KRMyModule
 import com.tencent.kuikly.android.demo.module.KRShareModule
 import com.tencent.kuikly.android.demo.module.tdf.KRTDFTestModule
 import com.tencent.kuikly.core.render.android.IKuiklyRenderExport
@@ -150,6 +151,9 @@ open class ContextCodeHandler(
             moduleExport(KRBridgeModule.MODULE_NAME) {
                 KRBridgeModule()
             }
+            moduleExport(KRMyModule.MODULE_NAME) {
+                KRMyModule()
+            }
             moduleExport(KRShareModule.MODULE_NAME) {
                 KRShareModule()
             }
@@ -164,6 +168,10 @@ open class ContextCodeHandler(
             // 覆盖框架内置 KRModalView，使用 Dialog 模式实现，解决无障碍阻隔问题
             renderViewExport(MyModalView.VIEW_NAME, {
                 MyModalView(it)
+            })
+            // Demo 自定义 View，对齐鸿蒙 KRMyDemoCustomView.ets（供 AccessibilityTestPage / CustomViewExamplePage 使用）
+            renderViewExport(KRMyDemoCustomView.VIEW_NAME, {
+                KRMyDemoCustomView(it)
             })
         }
     }

@@ -1,7 +1,7 @@
 /*
  * Tencent is pleased to support the open source community by making KuiklyUI
  * available.
- * Copyright (C) 2026 Tencent. All rights reserved.
+ * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the License of KuiklyUI;
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,24 +13,19 @@
  * limitations under the License.
  */
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+#ifndef CORE_RENDER_OHOS_KUIKLY_EXPORT_H
+#define CORE_RENDER_OHOS_KUIKLY_EXPORT_H
 
-class VersionTest {
+/**
+ * Marks symbols that must remain in the dynamic symbol table when
+ * -fvisibility=hidden is enabled for package-size optimization.
+ */
+#ifndef KUIKLY_EXPORT
+#if defined(__GNUC__) || defined(__clang__)
+#define KUIKLY_EXPORT __attribute__((visibility("default")))
+#else
+#define KUIKLY_EXPORT
+#endif
+#endif
 
-    @Test
-    fun formatsPrefetchReleaseVersionAfterTag() {
-        assertEquals(
-            "2.17.1-prefetch-2.1.21",
-            Version.formatPrefetchComposeVersion("2.17.1", "2.1.21"),
-        )
-    }
-
-    @Test
-    fun keepsSnapshotSuffixAtEnd() {
-        assertEquals(
-            "2.17.1.42-prefetch-2.1.21-SNAPSHOT",
-            Version.formatPrefetchComposeVersion("2.17.1.42-SNAPSHOT", "2.1.21"),
-        )
-    }
-}
+#endif  // CORE_RENDER_OHOS_KUIKLY_EXPORT_H

@@ -78,6 +78,7 @@ import com.tencent.kuikly.compose.layout.checkOffScreenNode
 import com.tencent.kuikly.compose.layout.hideOffsetScreenView
 import com.tencent.kuikly.compose.layout.restoreScrollerViewOnReuse
 import com.tencent.kuikly.compose.layout.transferScrollToTopCallback
+import com.tencent.kuikly.compose.scroller.AndroidBackgroundAlignmentEffect
 import com.tencent.kuikly.compose.scroller.handleScrollToTopCallback
 import com.tencent.kuikly.compose.scroller.isAtTop
 import com.tencent.kuikly.compose.scroller.lastItemVisible
@@ -240,6 +241,8 @@ fun SubcomposeLayout(
     val isDrawerPager = scrollableState is DrawerInternalPagerState
     val coroutineScope = rememberCoroutineScope()
 
+    scrollableState.AndroidBackgroundAlignmentEffect()
+
     LaunchedEffect(scrollViewSize) {
         scrollableState.calculateAndUpdateContentSize()
     }
@@ -319,10 +322,13 @@ fun SubcomposeLayout(
                 val offset = if (isVertical) scaleParams.offsetY.toInt() else scaleParams.offsetX.toInt()
                 kuiklyInfo.contentOffset = offset
                 kuiklyInfo.isDragging = kuiklyInfo.scrollView?.isDragging ?: false
+                (scrollableState as? PagerState)?.onNativeDragEnd()
             }
             scroll {
                 val scaleParams = it.scaleWithDensity(kuiklyInfo.getDensity())
                 val offset = if (isVertical) scaleParams.offsetY.toInt() else scaleParams.offsetX.toInt()
+                kuiklyInfo.isDragging = kuiklyInfo.scrollView?.isDragging ?: false
+                (scrollableState as? PagerState)?.onNativeScroll()
 
                 // Reject unexpected native offset jumps (e.g. HarmonyOS HandleCrashTop).
                 // Correct the native side back and skip this event entirely to prevent
@@ -343,7 +349,6 @@ fun SubcomposeLayout(
                 kuiklyInfo.contentOffset = offset
                 (scrollableState as? PagerState)?.onNativeContentOffsetChanged(offset)
                 (scrollableState as? DrawerInternalPagerState)?.onNativeContentOffsetChanged(offset)
-                kuiklyInfo.isDragging = kuiklyInfo.scrollView?.isDragging ?: false
 
                 if (kuiklyInfo.ignoreScrollOffset != null) {
                     val ignoreOffset = kuiklyInfo.ignoreScrollOffset!!

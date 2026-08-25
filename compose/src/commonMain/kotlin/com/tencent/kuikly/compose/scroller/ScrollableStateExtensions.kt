@@ -71,6 +71,7 @@ internal fun ScrollableState.kuiklyOnScrollEnd(params: ScrollParams) {
             // leaves updateFromMeasureResult unprotected. isSnapAnimating is
             // cleared in the applyMeasureResult_job after FIXING decision.
             scrollableState.kuiklyOnScrollEnd(params)
+            onNativeScrollEnd()
         }
         is DrawerInternalPagerState -> scrollableState.kuiklyOnScrollEnd(params)
         is LazyGridState -> scrollableState.kuiklyOnScrollEnd(params)
@@ -166,6 +167,11 @@ internal fun ScrollableState.shouldRejectNativeScrollOffset(newOffset: Int): Boo
  */
 internal fun ScrollableState.applyScrollViewOffsetDelta(delta: Int) {
     if (kuiklyInfo.scrollView == null || delta == 0) return
+
+    if (shouldDeferAndroidOffsetAlignment()) {
+        kuiklyInfo.offsetDirty = true
+        return
+    }
 
     val newOffset = kuiklyInfo.scrollView!!.applyOffsetDelta(delta, kuiklyInfo)
     kuiklyInfo.composeOffset = if (kuiklyInfo.orientation == Orientation.Vertical) {

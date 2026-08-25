@@ -45,7 +45,6 @@ import com.tencent.kuikly.compose.ui.node.InternalCoreApi
 import com.tencent.kuikly.compose.ui.node.LayoutNode
 import com.tencent.kuikly.compose.ui.node.SnapshotInvalidationTracker
 import com.tencent.kuikly.compose.foundation.lazy.layout.FramePrefetchScheduler
-import com.tencent.kuikly.compose.foundation.lazy.layout.KUIKLY_PREFETCH_FRAME_INTERVAL_NS
 import com.tencent.kuikly.compose.foundation.lazy.layout.KUIKLY_PREFETCH_IDLE_FRAME_MULTIPLIER
 import com.tencent.kuikly.compose.foundation.lazy.layout.LazyListPrefetchTrace
 import com.tencent.kuikly.compose.foundation.lazy.layout.PrefetchScheduler
@@ -58,6 +57,7 @@ import com.tencent.kuikly.compose.ui.KuiklyCanvas
 import com.tencent.kuikly.compose.animation.core.commitPendingNativeAnimationProperties
 import com.tencent.kuikly.compose.animation.core.destroyCurrentNativeAnimationCoordinator
 import com.tencent.kuikly.core.exception.throwRuntimeError
+import com.tencent.kuikly.core.log.KLog
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.CoroutineContext
 
@@ -77,7 +77,7 @@ internal abstract class BaseComposeScene(
 ) : ComposeScene {
     private var paused = false
     /** Previous frame draw time; official idle = 2 vsync periods since last draw. */
-    private var lastFrameDrawNanoTime: Long = 0L
+    private var lastFrameDrawTimeMillis: Double = 0.0
 
     override val vsyncTickConditions =
         VsyncTickConditions { paused ->
@@ -212,7 +212,27 @@ internal abstract class BaseComposeScene(
 
             recomposer.performScheduledTasks()
 
-            frameClock.sendFrame(nanoTime) // Recomposition
+            // Kuikly runs on HRContextQueueHandlerThread; snapshot apply during sendFrame can
+            // synchronously drain official Jetpack Compose SnapshotStateObservers. If main-thread
+            // official UI (e.g. androidx.compose.animation.Transition) is updated concurrently,
+            // IndexOutOfBoundsException may surface here — not fixable in official Compose.
+            // Only swallow IOOB from that path; rethrow other IOOB so real bugs still crash.
+            try {
+                frameClock.sendFrame(nanoTime) // Recomposition
+            } catch (e: IndexOutOfBoundsException) {
+                val trace = e.stackTraceToString()
+                if (!trace.contains("Transition.calculateTotalDurationNanos")) {
+                    throw e
+                }
+                KLog.e(
+                    "Kuikly.Compose",
+                    "sendFrame IndexOutOfBoundsException (official Compose Transition on shared Snapshot): $trace",
+                )
+                if (frameSampled) {
+                    tracker?.onFrameEnd(0)
+                }
+                return@postponeInvalidation
+            }
             doLayout() // Layout
             recomposer.performScheduledEffects() // Composition effects (e.g. LaunchedEffect)
 
@@ -221,21 +241,20 @@ internal abstract class BaseComposeScene(
             draw(KuiklyCanvas()) // Draw
             commitPendingNativeAnimationProperties()
 
-            val previousDrawNanoTime = lastFrameDrawNanoTime
-            lastFrameDrawNanoTime = nanoTime
-            val frameIntervalNs = KUIKLY_PREFETCH_FRAME_INTERVAL_NS
+            val frameTimestampMillis = vsyncTickConditions.frameTimestampMillis
+            val previousDrawTimeMillis = lastFrameDrawTimeMillis
+            lastFrameDrawTimeMillis = frameTimestampMillis
+            val frameIntervalMillis = vsyncTickConditions.frameIntervalMillis
             val isFrameIdle =
-                previousDrawNanoTime != 0L &&
-                    nanoTime >
-                    previousDrawNanoTime +
-                    KUIKLY_PREFETCH_IDLE_FRAME_MULTIPLIER * frameIntervalNs
+                previousDrawTimeMillis != 0.0 &&
+                    frameTimestampMillis >
+                    previousDrawTimeMillis +
+                    KUIKLY_PREFETCH_IDLE_FRAME_MULTIPLIER * frameIntervalMillis
             val framePrefetchScheduler = prefetchScheduler as? FramePrefetchScheduler
             val prefetchResult =
                 framePrefetchScheduler?.processRequests(
-                    nanoTime,
-                    frameIntervalNs,
-                    isFrameIdle,
-                    previousDrawNanoTime,
+                    frameDeadlineMillis = vsyncTickConditions.frameDeadlineMillis,
+                    isFrameIdle = isFrameIdle,
                 )
             val prefetchSpentNs = prefetchResult?.spentNs ?: 0L
             LazyListPrefetchTrace.log(

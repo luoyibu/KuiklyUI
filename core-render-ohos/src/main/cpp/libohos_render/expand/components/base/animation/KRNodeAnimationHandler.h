@@ -130,6 +130,8 @@ class KRNodeAnimationHandler : public std::enable_shared_from_this<KRNodeAnimati
     }
 
  private:
+    void startSnapAnimation();
+
     bool playing_ = false;
     std::shared_ptr<KRAnimation> animation_;
     KRNodeAnimationOperationEndCallback end_callback_;

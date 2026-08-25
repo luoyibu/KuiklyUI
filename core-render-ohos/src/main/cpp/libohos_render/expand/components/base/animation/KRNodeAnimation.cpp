@@ -41,9 +41,19 @@ void KRNodeAnimation::commitAnimationOperations() {
         if (self == nullptr) {
             return;
         }
-        self->allOperationsFinished = self->allOperationsFinished && finished;
+        const bool isNativeV2 = !self->nativeV2.kind.empty();
+        if (isNativeV2) {
+            self->allOperationsFinished = self->allOperationsFinished && finished;
+        }
         self->animationRunningCount--;
-        if (self->animationRunningCount == 0 && self->onAnimationEndCallback) {
+        if (!self->onAnimationEndCallback) {
+            return;
+        }
+        if (!isNativeV2) {
+            // Preserve the legacy OHOS contract: one callback for every animated property.
+            self->onAnimationEndCallback(selfRef, finished, propKey, self->animationKey);
+        } else if (self->animationRunningCount == 0) {
+            // Compose Native V2 treats all properties on this View as one animation batch.
             self->onAnimationEndCallback(selfRef, self->allOperationsFinished, propKey, self->animationKey);
         }
     };

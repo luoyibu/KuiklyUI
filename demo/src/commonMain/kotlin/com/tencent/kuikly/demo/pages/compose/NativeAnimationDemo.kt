@@ -29,7 +29,6 @@ import com.tencent.kuikly.compose.animation.animateColor
 import com.tencent.kuikly.compose.animation.animateColorAsState
 import com.tencent.kuikly.compose.animation.core.Animatable
 import com.tencent.kuikly.compose.animation.core.CubicBezierEasing
-import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.animation.core.FiniteAnimationSpec
 import com.tencent.kuikly.compose.animation.core.MutableTransitionState
 import com.tencent.kuikly.compose.animation.core.Spring
@@ -82,7 +81,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Page("NativeAnimationDemo")
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 class NativeAnimationDemo : ComposeContainer() {
     override fun willInit() {
         super.willInit()
@@ -94,7 +92,6 @@ class NativeAnimationDemo : ComposeContainer() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeAnimationDemoContent() {
     LazyColumn(
@@ -135,7 +132,6 @@ private fun NativeAnimationDemoContent() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun ComposeNativeComparisonDemo() {
     DemoSection(
@@ -177,7 +173,6 @@ private fun ComposeNativeComparisonDemo() {
 
 private enum class NativeCardState { Start, End }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeTransitionDemo() {
     DemoSection(
@@ -207,7 +202,6 @@ private fun NativeTransitionDemo() {
 private fun NativeCardState.opposite(): NativeCardState =
     if (this == NativeCardState.Start) NativeCardState.End else NativeCardState.Start
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun TransitionComparisonCard(
     label: String,
@@ -261,7 +255,6 @@ private fun TransitionComparisonCard(
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeVisibilityDemo() {
     DemoSection(
@@ -288,7 +281,6 @@ private fun NativeVisibilityDemo() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun VisibilityComparison(label: String, visible: Boolean, useNative: Boolean) {
     val baseEnterFloatSpec = tween<Float>(800)
@@ -338,7 +330,6 @@ private fun VisibilityComparison(label: String, visible: Boolean, useNative: Boo
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeAnimatableDemo() {
     DemoSection(
@@ -398,7 +389,6 @@ private fun MovementLane(label: String, translation: Float, color: Color) {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeCrossfadeDemo() {
     DemoSection(
@@ -421,7 +411,6 @@ private fun NativeCrossfadeDemo() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun CrossfadeComparison(label: String, page: Int, useNative: Boolean) {
     val baseSpec = tween<Float>(700)
@@ -447,7 +436,6 @@ private fun CrossfadeComparison(label: String, page: Int, useNative: Boolean) {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeColorAsStateDemo() {
     DemoSection(
@@ -492,7 +480,6 @@ private fun ColorComparisonBox(label: String, color: Color) {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeSpecMatrixDemo() {
     DemoSection(
@@ -520,7 +507,6 @@ private fun NativeSpecMatrixDemo() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun SpecComparisonCase(
     title: String,
@@ -547,7 +533,6 @@ private fun SpecComparisonCase(
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeTransformMatrixDemo() {
     DemoSection(
@@ -575,7 +560,6 @@ private enum class TransformKind {
     Origin
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun TransformComparisonCase(title: String, kind: TransformKind) {
     var composeEnd by remember { mutableStateOf(false) }
@@ -594,7 +578,6 @@ private fun TransformComparisonCase(title: String, kind: TransformKind) {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun TransformComparisonCard(
     label: String,
@@ -682,7 +665,6 @@ private fun TransformComparisonCard(
 
 private enum class SlideEdge { Bottom, Top, Right, Left }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeSlideDirectionsDemo() {
     DemoSection(
@@ -715,7 +697,6 @@ private fun NativeSlideDirectionsDemo() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun DirectionalVisibility(
     label: String,
@@ -767,7 +748,6 @@ private fun DirectionalVisibility(
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeFallbackDemo() {
     DemoSection(
@@ -808,7 +788,6 @@ private fun LayoutWidthBar(label: String, widthValue: Float, color: Color) {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeAnimationStressDemo() {
     DemoSection(
@@ -863,7 +842,6 @@ private fun NativeAnimationStressDemo() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun NativeDialogContentDemo() {
     DemoSection(
@@ -889,7 +867,6 @@ private fun NativeDialogContentDemo() {
     }
 }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 private fun AnimatedDialogContent(
     visible: Boolean,
@@ -936,10 +913,7 @@ private fun AnimatedDialogContent(
     }
 }
 
-@OptIn(
-    ExperimentalKuiklyNativeAnimationApi::class,
-    ExperimentalComposeUiApi::class
-)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun NativePopupContentDemo() {
     DemoSection(
@@ -965,10 +939,7 @@ private fun NativePopupContentDemo() {
     }
 }
 
-@OptIn(
-    ExperimentalKuiklyNativeAnimationApi::class,
-    ExperimentalComposeUiApi::class
-)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun AnimatedPopupContent(
     visible: Boolean,

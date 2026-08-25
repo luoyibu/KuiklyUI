@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.animation.AnimatedVisibility
-import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.animation.core.MutableTransitionState
 import com.tencent.kuikly.compose.animation.core.animate
 import com.tencent.kuikly.compose.animation.core.animateFloatAsState
@@ -96,7 +95,6 @@ import kotlin.math.roundToInt
  * }
  * ```
  */
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun ModalBottomSheet(
     visible: Boolean,
@@ -128,11 +126,10 @@ fun ModalBottomSheet(
 }
 
 /**
- * Experimental overload that moves the sheet's existing slide animation to Native Render.
+ * Overload that can disable the default Native Render slide animation.
  *
  * The scrim, drag handling, layout, lifecycle, and callbacks retain the existing Compose behavior.
  */
-@ExperimentalKuiklyNativeAnimationApi
 @Composable
 fun ModalBottomSheet(
     visible: Boolean,

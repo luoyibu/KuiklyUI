@@ -16,7 +16,6 @@ package com.tencent.kuikly.demo.pages.compose
 
 import androidx.compose.runtime.*
 import com.tencent.kuikly.compose.ComposeContainer
-import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.foundation.background
 import com.tencent.kuikly.compose.foundation.layout.*
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
@@ -97,7 +96,7 @@ class BottomSheetDemo1 : ComposeContainer() {
         }
     }
 
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalKuiklyNativeAnimationApi::class)
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun ModalBottomSheetTest() {
         var showBottomSheet by remember { mutableStateOf(false) }
@@ -156,7 +155,7 @@ class BottomSheetDemo1 : ComposeContainer() {
         }
     }
 
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalKuiklyNativeAnimationApi::class)
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun ModalBottomSheetWithCustomStyle() {
         var showBottomSheet by remember { mutableStateOf(false) }
@@ -225,7 +224,7 @@ class BottomSheetDemo1 : ComposeContainer() {
         }
     }
 
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalKuiklyNativeAnimationApi::class)
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun ModalBottomSheetWithScrollableContent() {
         var showBottomSheet by remember { mutableStateOf(false) }

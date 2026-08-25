@@ -16,7 +16,6 @@
 package com.tencent.kuikly.compose.animation
 
 import com.tencent.kuikly.compose.animation.core.FiniteAnimationSpec
-import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.animation.core.Transition
 import com.tencent.kuikly.compose.animation.core.nativePreferredOriginalOrNull
 import com.tencent.kuikly.compose.animation.core.preferNative
@@ -108,7 +107,6 @@ internal fun EnterTransition.retainForNativeInterruptionOrNone(): EnterTransitio
  * manually. Pure slide and slide + fade transforms are promoted together. Scale and layout
  * effects are returned unchanged and therefore keep the Compose clock as one logical group.
  */
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 internal fun ContentTransform.preferNativeNavHostSlide(): ContentTransform {
     val enterData = targetContentEnter.data
     val exitData = initialContentExit.data

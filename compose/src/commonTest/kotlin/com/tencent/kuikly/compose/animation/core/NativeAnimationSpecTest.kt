@@ -23,7 +23,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 class NativeAnimationSpecTest {
     @Test
     fun legacyCoreDescriptorIsUnchanged() {

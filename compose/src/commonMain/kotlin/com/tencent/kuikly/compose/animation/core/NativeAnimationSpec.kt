@@ -22,14 +22,12 @@ package com.tencent.kuikly.compose.animation.core
  * delegated to the original spec unchanged. If the complete logical animation cannot be executed
  * natively, Kuikly falls back to that original spec.
  */
-@ExperimentalKuiklyNativeAnimationApi
 fun <T> AnimationSpec<T>.preferNative(): AnimationSpec<T> =
     if (this is NativePreferredAnimationSpec<*>) this else NativePreferredAnimationSpec(this)
 
 /**
  * Finite-specialized overload of [preferNative].
  */
-@ExperimentalKuiklyNativeAnimationApi
 fun <T> FiniteAnimationSpec<T>.preferNative(): FiniteAnimationSpec<T> =
     if (this is NativePreferredFiniteAnimationSpec<*>) {
         this

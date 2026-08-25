@@ -63,10 +63,8 @@ View 最终状态长期分离。
 Native 动画是实验性、显式 opt-in 能力：
 
 ```kotlin
-@ExperimentalKuiklyNativeAnimationApi
 fun <T> AnimationSpec<T>.preferNative(): AnimationSpec<T>
 
-@ExperimentalKuiklyNativeAnimationApi
 fun <T> FiniteAnimationSpec<T>.preferNative(): FiniteAnimationSpec<T>
 ```
 
@@ -282,14 +280,12 @@ clip 需要按数据类型区分：
 以下示例均需要：
 
 ```kotlin
-import com.tencent.kuikly.compose.animation.core.ExperimentalKuiklyNativeAnimationApi
 import com.tencent.kuikly.compose.animation.core.preferNative
 ```
 
 ### animateFloatAsState：透明度
 
 ```kotlin
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeAlphaExample(visible: Boolean) {
     val alpha by animateFloatAsState(
@@ -330,7 +326,6 @@ Box(Modifier.width(width))
 ### animateColorAsState：纯色背景
 
 ```kotlin
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeBackgroundColorExample(active: Boolean) {
     val color by animateColorAsState(
@@ -353,7 +348,6 @@ fun NativeBackgroundColorExample(active: Boolean) {
 ### Animatable.animateTo：位移
 
 ```kotlin
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeAnimatableExample(move: Boolean) {
     val translation = remember { Animatable(0f) }
@@ -396,7 +390,6 @@ translation.animateTo(
 ```kotlin
 private enum class CardState { Hidden, Visible }
 
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeTransitionExample(state: CardState) {
     val transition = updateTransition(state, label = "card")
@@ -444,7 +437,6 @@ fun NativeTransitionExample(state: CardState) {
 ### AnimatedVisibility：fade、scale 和 slide
 
 ```kotlin
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeAnimatedVisibilityExample(visible: Boolean) {
     val enterVisualSpec =
@@ -497,7 +489,6 @@ AnimatedVisibility(
 ### Crossfade
 
 ```kotlin
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeCrossfadeExample(page: String) {
     Crossfade(
@@ -540,7 +531,6 @@ if (showDialog) {
 没有机会播放退出动画。业务需要用 `MutableTransitionState` 保留退出节点：
 
 ```kotlin
-@OptIn(ExperimentalKuiklyNativeAnimationApi::class)
 @Composable
 fun NativeAnimatedDialog(
     show: Boolean,
@@ -637,7 +627,6 @@ Dialog 遮罩、退出节点生命周期、完成回调和拖拽状态。
 另提供实验性 overload，用于灰度或强制回到 Compose：
 
 ```kotlin
-@ExperimentalKuiklyNativeAnimationApi
 @Composable
 fun ModalBottomSheet(
     visible: Boolean,

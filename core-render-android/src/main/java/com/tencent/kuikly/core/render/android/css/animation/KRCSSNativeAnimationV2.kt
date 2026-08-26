@@ -36,7 +36,7 @@ internal data class NativeCurve(val kind: String, val values: List<Float>) {
 }
 
 internal fun parseNativeCurveV2(animationParts: List<String>): NativeCurve? =
-    animationParts.firstOrNull { it.startsWith("v2,") }?.let(NativeCurve::parse)
+    animationParts.firstOrNull { it.startsWith("v2,") }?.let { NativeCurve.parse(it) }
 
 internal fun KRCSSAnimationHandler.applyNativeV2Curve(curve: NativeCurve?) {
     if (this is KRCSSPlainAnimationHandler) nativeCurve = curve
